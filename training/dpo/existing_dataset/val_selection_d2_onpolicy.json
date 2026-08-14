@@ -1,0 +1,79 @@
+[
+  {
+    "ckpt": "$QASRL_BASE_DIR/trainer_runs_baseline/Stage_DPO_Instruct_DEV/Qwen3-30B-A3B-Instruct-2507_dpo_from_Qwen3-30B-A3B-Instruct-2507_train_dev_val_test_d2_onpolicy_recall_s42/checkpoint-150",
+    "val_micro_f1": 0.8317362974319663,
+    "val_precision": 0.8617950754567116,
+    "val_recall": 0.8037037037037037,
+    "val_macro_f1": 0.8382991565172416,
+    "tp": 1085,
+    "fp": 174,
+    "fn": 265,
+    "n_groups": 376
+  },
+  {
+    "ckpt": "$QASRL_BASE_DIR/trainer_runs_baseline/Stage_DPO_Instruct_DEV/Qwen3-30B-A3B-Instruct-2507_dpo_from_Qwen3-30B-A3B-Instruct-2507_train_dev_val_test_d2_onpolicy_recall_s42/checkpoint-100",
+    "val_micro_f1": 0.8307692307692307,
+    "val_precision": 0.864,
+    "val_recall": 0.8,
+    "val_macro_f1": 0.8428831363671789,
+    "tp": 1080,
+    "fp": 170,
+    "fn": 270,
+    "n_groups": 376
+  },
+  {
+    "ckpt": "$QASRL_BASE_DIR/trainer_runs_baseline/Stage_DPO_Instruct_DEV/Qwen3-30B-A3B-Instruct-2507_dpo_from_Qwen3-30B-A3B-Instruct-2507_train_dev_val_test_d2_onpolicy_recall_s42/checkpoint-308",
+    "val_micro_f1": 0.8280834914611006,
+    "val_precision": 0.8490272373540856,
+    "val_recall": 0.8081481481481482,
+    "val_macro_f1": 0.8360437565146576,
+    "tp": 1091,
+    "fp": 194,
+    "fn": 259,
+    "n_groups": 376
+  },
+  {
+    "ckpt": "$QASRL_BASE_DIR/models_save_baseline/Stage_DPO_Instruct_DEV/Qwen3-30B-A3B-Instruct-2507_dpo_from_Qwen3-30B-A3B-Instruct-2507_train_dev_val_test_d2_onpolicy_recall_s42",
+    "val_micro_f1": 0.8280834914611006,
+    "val_precision": 0.8490272373540856,
+    "val_recall": 0.8081481481481482,
+    "val_macro_f1": 0.8360437565146576,
+    "tp": 1091,
+    "fp": 194,
+    "fn": 259,
+    "n_groups": 376
+  },
+  {
+    "ckpt": "$QASRL_BASE_DIR/trainer_runs_baseline/Stage_DPO_Instruct_DEV/Qwen3-30B-A3B-Instruct-2507_dpo_from_Qwen3-30B-A3B-Instruct-2507_train_dev_val_test_d2_onpolicy_recall_s42/checkpoint-300",
+    "val_micro_f1": 0.8274820687051717,
+    "val_precision": 0.8437259430331023,
+    "val_recall": 0.8118518518518518,
+    "val_macro_f1": 0.8357452978463616,
+    "tp": 1096,
+    "fp": 203,
+    "fn": 254,
+    "n_groups": 376
+  },
+  {
+    "ckpt": "$QASRL_BASE_DIR/trainer_runs_baseline/Stage_DPO_Instruct_DEV/Qwen3-30B-A3B-Instruct-2507_dpo_from_Qwen3-30B-A3B-Instruct-2507_train_dev_val_test_d2_onpolicy_recall_s42/checkpoint-200",
+    "val_micro_f1": 0.8238420652999242,
+    "val_precision": 0.8450155763239875,
+    "val_recall": 0.8037037037037037,
+    "val_macro_f1": 0.8313214767258885,
+    "tp": 1085,
+    "fp": 199,
+    "fn": 265,
+    "n_groups": 376
+  },
+  {
+    "ckpt": "$QASRL_BASE_DIR/trainer_runs_baseline/Stage_DPO_Instruct_DEV/Qwen3-30B-A3B-Instruct-2507_dpo_from_Qwen3-30B-A3B-Instruct-2507_train_dev_val_test_d2_onpolicy_recall_s42/checkpoint-250",
+    "val_micro_f1": 0.8234848484848486,
+    "val_precision": 0.8426356589147287,
+    "val_recall": 0.8051851851851852,
+    "val_macro_f1": 0.8312405957274543,
+    "tp": 1087,
+    "fp": 203,
+    "fn": 263,
+    "n_groups": 376
+  }
+]

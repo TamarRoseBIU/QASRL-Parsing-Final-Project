@@ -1,0 +1,11 @@
+model,dataset,method,notes,source_file,unlabelled argument p,unlabelled argument r,unlabelled argument f1,labelled argument p,labelled argument r,labelled argument f1,unlabelled role p,unlabelled role r,unlabelled role f1
+Qwen3-30B-A3B-Instruct-2507,passive_red,N/A,baseline,Qwen3-30B-A3B-Instruct-2507~passive_red_instruct_baseline_output_filled_slots.txt,73.52%,62.38%,67.49%,24.69%,20.95%,22.66%,100.00%,73.20%,84.53%
+Qwen3-30B-A3B-Instruct-2507,passive_red_dpo_final_epoch,N/A,,Qwen3-30B-A3B-Instruct-2507~passive_red_DPO_Instruct_final_epoch_output_filled_slots.txt,84.52%,73.76%,78.77%,54.86%,47.88%,51.13%,100.00%,81.74%,89.95%
+Qwen3-30B-A3B-Instruct-2507,passive_red_train_val_test,CE,,Qwen3-30B-A3B-Instruct-2507~passive_red_output_CE_train_split_filled_slots.txt,91.34%,62.04%,73.89%,61.36%,41.68%,49.64%,100.00%,73.59%,84.79%
+Qwen3-30B-A3B-Instruct-2507,passive_red,GRPO,beta=2 ckpt-3600,Qwen3-30B-A3B-Instruct-2507~passive_red_output_GRPO_beta2_ckpt3600_filled_slots.txt,79.60%,82.26%,80.90%,37.63%,38.89%,38.25%,100.00%,88.25%,93.76%
+Qwen3-30B-A3B-Instruct-2507,passive_red_dpo_dev_test,N/A,,Qwen3-30B-A3B-Instruct-2507~passive_red_DPO_Instruct_dev_TEST_output_filled_slots.txt,84.73%,74.02%,79.01%,54.63%,47.73%,50.95%,100.00%,82.09%,90.16%
+Qwen3-30B-A3B-Instruct-2507,posthoc_exp2c_b1p5_ckpt3600,N/A,reward ablation beta=1.5,Qwen3-30B-A3B-Instruct-2507~posthoc_exp2c_b1p5_ckpt3600_output_filled_slots.txt,80.86%,81.11%,80.98%,40.17%,40.30%,40.23%,100.00%,86.80%,92.93%
+Qwen3-30B-A3B-Instruct-2507,posthoc_exp2d_b3_ckpt4000,N/A,reward ablation beta=3.0,Qwen3-30B-A3B-Instruct-2507~posthoc_exp2d_b3_ckpt4000_output_filled_slots.txt,80.23%,81.93%,81.07%,39.39%,40.23%,39.80%,100.00%,87.78%,93.49%
+Qwen3-30B-A3B-Instruct-2507,passive_red_dev_val_test,CE,,Qwen3-30B-A3B-Instruct-2507~passive_red_CE_Instruct_dev_val_TEST_output_filled_slots.txt,84.84%,73.74%,78.90%,57.77%,50.22%,53.73%,100.00%,81.77%,89.97%
+Qwen3-30B-A3B-Instruct-2507,passive_red,DPO,DPO on-policy ckpt-150,Qwen3-30B-A3B-Instruct-2507~passive_red_output_DPO_D2_onpolicy_ckpt150_filled_slots.txt,81.34%,78.36%,79.82%,40.43%,38.94%,39.67%,100.00%,85.15%,91.98%
+Qwen3-30B-A3B-Instruct-2507,passive_red,CE,clean dev_val selection,Qwen3-30B-A3B-Instruct-2507~passive_red_output_SFT_dev_heldout_filled_slots.txt,82.23%,76.80%,79.42%,38.87%,36.30%,37.54%,100.00%,84.29%,91.47%

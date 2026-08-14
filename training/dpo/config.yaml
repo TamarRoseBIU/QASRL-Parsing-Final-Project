@@ -1,0 +1,85 @@
+# DPO (Stage 2b) — the on-policy recall track. Run configuration.
+#
+# Replaces the former run_dpo_v2.sh / run_eval_on_val.sh / run_mine_onpolicy.sh
+# launchers. Three steps: (0) build the preference pairs [optional — they already
+# ship in existing_dataset/], (1) train, (2) select the checkpoint on the held-out dev slice.
+
+conda_env: train_qwen3          # `conda activate train_qwen3` before running
+python: python                  # the activated env's interpreter
+
+# Storage root for checkpoints / saved adapters / logs. Read from the
+# QASRL_BASE_DIR environment variable by the script; falls back to <repo>/runs.
+base_dir_env: QASRL_BASE_DIR
+
+# ---------------------------------------------------------------------------
+# Step 0 (optional) — rebuild the DPO preference dataset. Full detail in
+# ../../data/README.md. The shipped result is existing_dataset/pairs_onpolicy_recall/.
+# ---------------------------------------------------------------------------
+build_dataset:
+  mine_samples:                 # GPU; imports qasrl_reward + qasrl_inference_utils
+    entrypoint: build_dataset/mine_onpolicy_samples.py
+    pythonpath: ../../shared
+    slurm: {partition: <GPU_PARTITION>, gres: gpu:1, mem: 64G, time: "04:00:00"}
+    # NOT DISTRIBUTABLE — the SFT LoRA adapter is not in this repo. Produce it by
+    # running training/sft/, or set QASRL_SFT_ADAPTER to your own adapter dir.
+    ce_checkpoint: ${QASRL_SFT_ADAPTER}
+    args: {split: dev, k: 8, temperature: 1.0, top_p: 0.95}
+    # run per shard (0 and 1 of 2); output -> build_dataset/onpolicy_samples/
+    run: >
+      PYTHONPATH=../../shared
+      python build_dataset/mine_onpolicy_samples.py
+      --ckpt <CE_CKPT> --split dev --k 8 --temperature 1.0 --top_p 0.95
+      --shard_idx <IDX> --n_shards 2
+      --out build_dataset/onpolicy_samples/dev_k8_shard<IDX>of2.jsonl
+  build_pairs:                  # CPU; imports build_dpo_training_data
+    entrypoint: build_dataset/build_onpolicy_pairs.py
+    pythonpath: ../../shared
+    args: {mode: onpolicy_recall, prec_floor: 0.6, score: fbeta2, min_margin: 0.15, val_frac: 0.15}
+    run: >
+      PYTHONPATH=../../shared
+      python build_dataset/build_onpolicy_pairs.py
+      --samples build_dataset/onpolicy_samples/dev_k8_shard0of2.jsonl
+                build_dataset/onpolicy_samples/dev_k8_shard1of2.jsonl
+      --mode onpolicy_recall --prec-floor 0.6 --score fbeta2 --min-margin 0.15
+      --val-frac 0.15 --out-dir existing_dataset/pairs_onpolicy_recall
+
+# ---------------------------------------------------------------------------
+# Step 1 — train DPO. Optimizer knobs held FIXED across arms (isolate pair
+# provenance). Imports qasrl_reward from training/shared.
+# ---------------------------------------------------------------------------
+train:
+  entrypoint: Stage_DPO_Instruct_DEV.py
+  pythonpath: ../shared
+  slurm: {partition: <GPU_PARTITION>, gres: gpu:1, mem: 200G, time: "04:00:00"}
+  data_dir: existing_dataset/pairs_onpolicy_recall     # -> DPO_DATA_DIR
+  env:
+    DPO_ARM: d2_onpolicy_recall_s42
+    DPO_SEED: "42"
+    DPO_LR: "5e-6"
+    DPO_EPOCHS: "2"
+    DPO_BETA: "0.2"
+  run: >
+    DPO_ARM=d2_onpolicy_recall_s42 DPO_SEED=42 DPO_LR=5e-6 DPO_EPOCHS=2 DPO_BETA=0.2
+    DPO_DATA_DIR=existing_dataset/pairs_onpolicy_recall PYTHONPATH=../shared
+    python Stage_DPO_Instruct_DEV.py
+
+# ---------------------------------------------------------------------------
+# Step 2 — checkpoint selection on the held-out DEV slice (test.json is not used).
+# Ranks every checkpoint-* under CKPT_PARENT (+ the final adapter) by micro F1.
+# ---------------------------------------------------------------------------
+select:
+  entrypoint: eval_on_val.py
+  pythonpath: ../shared               # imports qasrl_reward + qasrl_inference_utils
+  slurm: {partition: <GPU_PARTITION>, gres: gpu:1, mem: 200G, time: "04:00:00"}
+  val_holdout: existing_dataset/pairs_onpolicy_recall/dpo_val.jsonl
+  run: >
+    PYTHONPATH=../shared
+    python eval_on_val.py
+    --ckpts <CKPT_PARENT>/checkpoint-* <FINAL_ADAPTER_DIR>
+    --val existing_dataset/pairs_onpolicy_recall/dpo_val.jsonl
+    --out existing_dataset/selection.json
+  # recorded result (existing_dataset/val_selection_d2_onpolicy.json): checkpoint-150
+  # -> test Unlabelled Argument F1 = 79.82 (arm mean 79.59 +/- 0.26 over 3 seeds)
+
+# Outputs land under CURRENT_STAGE="Stage_DPO_Instruct_DEV":
+#   $QASRL_BASE_DIR/{models_save_baseline,trainer_runs_baseline,logs_baseline}/Stage_DPO_Instruct_DEV/<run_name>

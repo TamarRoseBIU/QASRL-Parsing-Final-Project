@@ -1,0 +1,62 @@
+# GRPO (Stage 2a) — the winning improvement over SFT. Run configuration.
+#
+# Replaces the former train_script_GRPO_exp2.sh launcher. GRPO is configured through
+# ENVIRONMENT VARIABLES (the .py reads them via os.environ.get with in-script
+# defaults). The values below reproduce the winning "Exp 2a" run.
+#
+# NOTE: two values differ from the script's built-in defaults and MUST be set to
+# reproduce the winner:  GRPO_LR (default 1e-5 -> use 2e-5) and
+# EVAL_SUBSET (default 256 -> use 128).
+
+conda_env: train_qwen3          # `conda activate train_qwen3` before running
+python: python                  # the activated env's interpreter
+entrypoint: Stage_GRPO_Instruct_DEV.py
+
+# Storage root for checkpoints / saved adapters / logs, and where the warm-start CE
+# adapter is looked up. Read from the QASRL_BASE_DIR environment variable by the
+# script; falls back to <repo>/runs.
+base_dir_env: QASRL_BASE_DIR
+pythonpath: ../shared          # imports qasrl_reward
+
+slurm:
+  partition: <GPU_PARTITION>
+  account: <SLURM_ACCOUNT>
+  gres: gpu:1
+  mem: 128G
+  time: "04:00:00"
+  requeue: true
+  signal: SIGUSR1@90
+
+# Winning reward + optimization (Exp 2a): recall-weighted F_beta with beta=2.
+env:
+  REWARD_BETA: "2.0"           # F_beta for the reward; >1 up-weights recall (flat optimum 1.5-3.0)
+  GRPO_LR: "2e-5"              # override — fixes the prior under-training (script default 1e-5)
+  NUM_GEN: "4"                 # rollouts per prompt (group size)
+  GRAD_ACCUM: "4"
+  KL_BETA: "0.04"             # KL anchor to the frozen CE reference
+  GRPO_EPOCHS: "2"
+  GRPO_TEMP: "1.0"
+  EVAL_SUBSET: "128"          # override — cheap eval (script default 256)
+  EVAL_STEPS: "200"
+  SAVE_STEPS: "200"
+  EXP_TAG: "grpo_exp2a"        # appended to the run/output dir name
+
+run: >
+  REWARD_BETA=2.0 GRPO_LR=2e-5 NUM_GEN=4 GRAD_ACCUM=4 KL_BETA=0.04
+  GRPO_EPOCHS=2 GRPO_TEMP=1.0 EVAL_SUBSET=128 EVAL_STEPS=200 SAVE_STEPS=200
+  EXP_TAG=grpo_exp2a PYTHONPATH=../shared
+  python Stage_GRPO_Instruct_DEV.py
+
+# Warm-start: the frozen SFT (CE) LoRA adapter acts as both init and KL reference.
+# NOT DISTRIBUTABLE — this is a multi-GB LoRA adapter on lab model storage and is not
+# in this repo. Produce it by running the SFT stage (training/sft/), or set
+# QASRL_SFT_ADAPTER to your own. Resolved as:
+warm_start_adapter_env: QASRL_SFT_ADAPTER   # set this to the dir training/sft/ wrote
+warm_start_adapter_fallback: ${QASRL_BASE_DIR}/models_save_baseline/Stage_CE/<CE_RUN_NAME>
+
+# Checkpoint selection: the best checkpoint is MID-RUN (~3600 of 4812), not the final.
+# Evaluate ~ckpt-3600 and report the honest split-half figure (~80.6 F1, +1.7 vs SFT).
+best_checkpoint_hint: 3600
+
+# Outputs land under CURRENT_STAGE="Stage_GRPO_Instruct_DEV":
+#   $QASRL_BASE_DIR/{models_save_baseline,trainer_runs_baseline,logs_baseline}/Stage_GRPO_Instruct_DEV/<run_name>

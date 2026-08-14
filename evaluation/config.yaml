@@ -1,0 +1,62 @@
+# Evaluation — run configuration.
+#
+# Replaces the former run_inference_*.sh / run_posthoc_eval.sh launchers. Evaluation
+# uses TWO conda envs: GPU inference runs in `train_qwen3`; CPU scoring runs in `eval`.
+# All commands are launched from this `evaluation/` directory (scripts use paths
+# relative to it). Run under SLURM (1 GPU) for the inference step.
+
+envs:
+  inference: train_qwen3   # GPU — `conda activate train_qwen3`, then use `python`
+  scoring:   eval          # CPU — `conda activate eval`, then use `python`
+
+slurm:
+  inference: {partition: <GPU_PARTITION>, account: <SLURM_ACCOUNT>, gres: gpu:1, mem: 64G, time: "02:00:00"}
+
+paths:
+  model_input: ./data/model_input/passive_red.model_inputs.csv
+  gold:        ./data/gold/gold_updated_passive_filled_slots.csv
+  raw_output:  ./data/model_output/Qwen3-30B-A3B-Instruct-2507/            # (emptied; recreated per run)
+  filled_slots: ./data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/
+
+# ---------------------------------------------------------------------------
+# Headline metric: UNLABELLED Argument F1 (the number reported for SFT/GRPO/DPO).
+# Three steps for one adapter (<ADAPTER_DIR> = a saved LoRA adapter; <TAG> = a label).
+# ---------------------------------------------------------------------------
+unlabelled_f1:
+  step1_inference:                # conda train_qwen3, GPU
+    run: >
+      python scripts/run_qwen3_instruct_inference.py
+      --model_path <ADAPTER_DIR>
+      --input  ./data/model_input/passive_red.model_inputs.csv
+      --output ./data/model_output/Qwen3-30B-A3B-Instruct-2507/posthoc_<TAG>.csv
+  step2_dummy_slots:              # conda eval — fill dummy slot columns (unlabelled-only)
+    run: >
+      python scripts/add_dummy_slots.py
+      ./data/model_output/Qwen3-30B-A3B-Instruct-2507/posthoc_<TAG>.csv
+      ./data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/posthoc_<TAG>_output_filled_slots.csv
+  step3_score:                    # conda eval — Unlabelled Argument/Role F1
+    run: >
+      python scripts/evaluate_dataset.py
+      ./data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/posthoc_<TAG>_output_filled_slots.csv
+      ./data/gold/gold_updated_passive_filled_slots.csv
+
+# Aggregate scored runs into a comparison table (writes into ./results/):
+summarize:
+  run: python scripts/summarize_results.py
+
+# ---------------------------------------------------------------------------
+# LABELLED Argument F1 (optional) needs the bundled Scala FillQasrlSlots slot-filler
+# instead of add_dummy_slots.py. Toolchain shipped here: build.sbt, cs (coursier),
+# project/, qasrl/, src/, target/scala-2.12/. Build/run via sbt, then score the
+# filled output with scripts/evaluate_dataset.py the same way.
+# ---------------------------------------------------------------------------
+labelled_f1:
+  slot_filler: FillQasrlSlots (Scala; build.sbt + cs)
+
+# Adapter locations to evaluate. NOT DISTRIBUTABLE — these are multi-GB LoRA adapters
+# on lab model storage and are not in this repo. Produce them by running the training
+# stages, or supply your own. $QASRL_BASE_DIR defaults to <repo>/runs:
+adapters:
+  sft:  $QASRL_SFT_ADAPTER   # or ${QASRL_BASE_DIR}/models_save_baseline/Stage_CE/<CE_RUN_NAME>
+  grpo: ${QASRL_BASE_DIR}/models_save_baseline/Stage_GRPO_Instruct_DEV/<run_name>   # eval ~checkpoint-3600
+  dpo:  ${QASRL_BASE_DIR}/models_save_baseline/Stage_DPO_Instruct_DEV/<run_name>    # checkpoint-150

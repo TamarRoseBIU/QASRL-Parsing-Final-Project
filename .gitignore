@@ -1,0 +1,99 @@
+# ---------------------------------------------------------------------------
+# Vendored / downloadable binaries
+# ---------------------------------------------------------------------------
+# Coursier launcher (~77 MB). Fetch with:
+#   curl -fL https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-linux.gz \
+#     | gzip -d > evaluation/cs && chmod +x evaluation/cs
+/evaluation/cs
+
+# ---------------------------------------------------------------------------
+# Scala / sbt / mill build artifacts
+# ---------------------------------------------------------------------------
+target/
+/evaluation/target/
+/evaluation/project/target/
+*.class
+*.jar
+project/project/
+.bloop/
+.metals/
+.bsp/
+.ammonite/
+/evaluation/out/
+/evaluation/qasrl/out/
+
+# sbt / build logs
+*.log
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Runtime split caches written next to qasrl_inference_utils.py by load_split()
+*.json.cache
+
+# ---------------------------------------------------------------------------
+# Model weights, checkpoints, training run outputs
+# ---------------------------------------------------------------------------
+*.bin
+*.pt
+*.safetensors
+checkpoint-*/
+**/models_save/
+**/trainer_runs/
+**/wandb/
+**/runs/
+outputs/
+slurm-*.out
+
+# ---------------------------------------------------------------------------
+# Editor / OS cruft
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# ---------------------------------------------------------------------------
+# Explicitly KEEP tracked data (these override the broad rules above).
+# The DPO preference data and evaluation gold/ground-truth data are committed
+# deliberately.
+# ---------------------------------------------------------------------------
+!/data/**
+!/evaluation/data/**
+!/evaluation/datasets/**
+!/training/dpo/existing_dataset/**
+!/training/dpo/build_dataset/onpolicy_samples/**
+!**/.gitkeep
+
+# ---------------------------------------------------------------------------
+# ...but never build artifacts inside those KEEP paths. The `!` rules above
+# re-include EVERYTHING beneath them, which cancels the global __pycache__/
+# and *.pyc rules for those subtrees -- `data/` and `evaluation/datasets/`
+# both contain .py files, so importing them would otherwise drop committable
+# .pyc files into the tree.
+# ---------------------------------------------------------------------------
+/data/**/__pycache__/
+/evaluation/data/**/__pycache__/
+/evaluation/datasets/**/__pycache__/
+/training/dpo/existing_dataset/**/__pycache__/
+/training/dpo/build_dataset/onpolicy_samples/**/__pycache__/
+/data/**/*.pyc
+/evaluation/data/**/*.pyc
+/evaluation/datasets/**/*.pyc
+/training/dpo/existing_dataset/**/*.pyc
+/training/dpo/build_dataset/onpolicy_samples/**/*.pyc

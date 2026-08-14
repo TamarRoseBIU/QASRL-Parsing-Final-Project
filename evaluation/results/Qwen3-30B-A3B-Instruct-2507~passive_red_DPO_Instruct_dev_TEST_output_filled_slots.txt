@@ -1,0 +1,21 @@
+══════════════════════ QA-SRL EVALUATION REPORT ══════════════════════
+
+  Timestamp  : 2026-07-12 11:51:54
+  Model      : Qwen3-30B-A3B-Instruct-2507
+  Predictions: data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/passive_red_DPO_Instruct_dev_TEST_output_filled_slots.csv
+  Gold       : data/gold/passive_red_test_gold_detokenized_normalized.csv
+
+──────────────────────────────────────────────────────────────────────
+
+Metrics:	Precision	Recall	F1
+Unlabelled Argument: 84.73%	74.02%	79.01%
+labelled Argument: 54.63%	47.73%	50.95%
+Unlabelled Role: 100.00%	82.09%	90.16%
+Metrics:	TP	FP	FN
+Unlabelled Argument: 6453.0 1163.0 2265.0
+labelled Argument: 4161.0 3455.0 4557.0
+Unlabelled Role: 5826.0 0.0 1271.0
+
+══════════════════════════════════════════════════════════════════════
+  Evaluation complete.
+══════════════════════════════════════════════════════════════════════

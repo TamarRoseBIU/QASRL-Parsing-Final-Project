@@ -1,0 +1,81 @@
+# SFT (Stage 1, Cross-Entropy / LoRA) — run configuration
+#
+# Replaces the former train_script_Instruct_{DEV,TRAIN}.sh launchers. The Python
+# entry points are launched directly; all "how to run" data from the shell scripts is
+# captured below. Training hyperparameters live as CONSTANTS inside the .py files
+# (there are no CLI args) — the key values are mirrored here for reference.
+
+conda_env: train_qwen3          # `conda activate train_qwen3` before running
+python: python                  # the activated env's interpreter
+
+# Storage root for checkpoints / saved adapters / logs. The scripts read this from
+# the QASRL_BASE_DIR environment variable and fall back to <repo>/runs.
+# Point it at a filesystem with room for multi-GB adapters.
+base_dir_env: QASRL_BASE_DIR
+
+# SLURM settings the original jobs used (single GPU; the script pins to device 0 and
+# resumes from checkpoint on requeue).
+slurm:
+  partition: <GPU_PARTITION>
+  account: <SLURM_ACCOUNT>
+  gres: gpu:1
+  mem: 128G
+  time: "04:00:00"
+  requeue: true
+  signal: SIGUSR1@90             # lets the trainer save & exit cleanly before the wall
+
+pipelines:
+
+  dev:                            # the 78.90 Unlabelled-Argument-F1 baseline
+    entrypoint: Stage_CE_Instruct_DEV.py
+    description: LoRA SFT on the clean `dev` split; validates on `test`.
+    run: python Stage_CE_Instruct_DEV.py
+    # in-script constants (Stage_CE_Instruct_DEV.py):
+    hyperparameters:
+      MODEL_VARIANT: Instruct
+      TRAIN_ON: dev
+      VALIDATE_ON: test
+      lora_r: 8
+      lora_alpha: 16
+      lora_dropout: 0.05
+      lora_target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+      learning_rate: 2.0e-4
+      num_train_epochs: 5
+      per_device_train_batch_size: 2
+      gradient_accumulation_steps: 4
+    run_name: Qwen3-30B-A3B-Instruct-2507_train_dev_val_dev_val
+    # RUN_NAME encodes the validation mode, so it changes with it. GRPO/DPO locate
+    # this adapter via QASRL_SFT_ADAPTER rather than by name -- point that env var
+    # at whatever directory this stage writes.
+
+  train:                          # the 73.89 full-train-split CE baseline row
+    entrypoint: Stage_CE_Instruct_DEV.py     # same script, TRAIN_ON switched
+    description: >
+      Same LoRA/optimizer recipe as `dev`, fine-tuned on the full 92,805-example
+      `train` split instead of the clean 2,406-example `dev` split. Selection uses
+      eval_dev_loss (dev and test are both eval sets in this mode). This is a
+      baseline-table comparison row -- it is NOT the SFT checkpoint GRPO and DPO
+      warm-start from.
+    run: QASRL_SFT_TRAIN_ON=train python Stage_CE_Instruct_DEV.py
+    env:
+      QASRL_SFT_TRAIN_ON: "train"
+    # hyperparameters: identical to the `dev` pipeline above; only TRAIN_ON differs
+    run_name: Qwen3-30B-A3B-Instruct-2507_train_train_val_dev+test
+    # This run_name is deliberately consumed by nothing: the train-split model is a
+    # baseline-table row (73.89), not a warm-start source. Only the `dev` adapter
+    # feeds GRPO/DPO, via QASRL_SFT_ADAPTER.
+    result: 73.89 Unlabelled Argument F1
+
+# A separate full-train-split pipeline (train_qwen3_instruct_cross_entropy.py) using the
+# QASetLoss trainer produced no reported number and was removed. The QASetLoss objective
+# is still exercised -- and is still a reported result -- by the T5 baseline in ../t5/,
+# which is why training/shared/Utils/ remains.
+
+# Model storage (read/written by the scripts; NOT part of this repo).
+# $QASRL_BASE_DIR defaults to <repo>/runs:
+#   adapters:    $QASRL_BASE_DIR/models_save_baseline/Stage_CE/<run_name>
+#   checkpoints: $QASRL_BASE_DIR/trainer_runs_baseline/Stage_CE/<run_name>
+#   logs:        $QASRL_BASE_DIR/logs_baseline/Stage_CE/<run_name>
+#
+# Base data (train/dev/test) is downloaded from the URL at runtime — see
+# ../../data/download_data.py.
