@@ -21,8 +21,8 @@ JSON wrangling + string ops). This script needs a GPU + vLLM, which is a
 much heavier dependency footprint and should be a separate cluster job step.
 Keeping them separate means:
   - build_dpo_data.py stays fast and trivially runnable anywhere.
-  - This script can be submitted as its own SLURM job (e.g. `sbatch` with a
-    GPU partition) without dragging GPU requirements into the main pipeline.
+  - This script can be run as its own step without dragging GPU requirements
+    into the main pipeline.
   - If the LLM step fails, breaks, or you want to swap models, you re-run
     only this script, not the whole data-construction pipeline.
 
@@ -89,10 +89,9 @@ written to disk in sample mode unless you also pass --write-sample-output.
 ============================================================================
 USAGE
 ============================================================================
-These are the arguments this script accepts. On THIS cluster, don't run
-this .py file directly -- submit it via `sbatch run_grammar_fix.sbatch`,
-which invokes one of the commands below from inside an actual GPU job (see
-the GPU REQUIREMENT section further down for why).
+These are the arguments this script accepts. Run it directly from the
+command line on a machine with a visible GPU (see the GPU REQUIREMENT
+section further down for why).
 
     # Quality check on 30 random flagged examples, print only, no file written:
     python3 llm_fix_grammar.py --input dpo_pairs.json --sample 30
@@ -122,17 +121,10 @@ fall back to CPU) if no CUDA device is visible. Nothing about how you
 invoke `python3 llm_fix_grammar.py` makes this happen automatically: it
 depends entirely on the environment the process runs in.
 
-On this cluster, GPUs are only available via `sbatch` (no `srun` for
-interactive GPU allocations) -- submit the accompanying `run_grammar_fix.sbatch`
-job script instead of running this file directly:
-
-    sbatch run_grammar_fix.sbatch
-
-That script requests the GPU partition under the configured SLURM account,
-mirroring the existing Qwen3 training job's structure. Edit the script to
-pass `--sample 30` instead of the full run the first time -- see the
-comment inside it for the exact line to change. Running this .py file
-directly on a login node (with no GPU allocated) will fail.
+Run it on a machine or node with a GPU allocated and CUDA visible --
+running this .py file with no GPU available will fail. Use `--sample 30`
+(see USAGE above) to smoke-test on a small subset before committing to a
+full run.
 
 To make that failure clear and immediate rather than a confusing crash deep
 inside vLLM's model loading, `check_gpu_available()` below checks for a

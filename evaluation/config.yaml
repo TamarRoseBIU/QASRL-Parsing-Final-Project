@@ -3,14 +3,11 @@
 # Replaces the former run_inference_*.sh / run_posthoc_eval.sh launchers. Evaluation
 # uses TWO conda envs: GPU inference runs in `train_qwen3`; CPU scoring runs in `eval`.
 # All commands are launched from this `evaluation/` directory (scripts use paths
-# relative to it). Run under SLURM (1 GPU) for the inference step.
+# relative to it).
 
 envs:
   inference: train_qwen3   # GPU — `conda activate train_qwen3`, then use `python`
   scoring:   eval          # CPU — `conda activate eval`, then use `python`
-
-slurm:
-  inference: {partition: <GPU_PARTITION>, account: <SLURM_ACCOUNT>, gres: gpu:1, mem: 64G, time: "02:00:00"}
 
 paths:
   model_input: ./data/model_input/passive_red.model_inputs.csv

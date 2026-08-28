@@ -13,17 +13,6 @@ python: python                  # the activated env's interpreter
 # Point it at a filesystem with room for multi-GB adapters.
 base_dir_env: QASRL_BASE_DIR
 
-# SLURM settings the original jobs used (single GPU; the script pins to device 0 and
-# resumes from checkpoint on requeue).
-slurm:
-  partition: <GPU_PARTITION>
-  account: <SLURM_ACCOUNT>
-  gres: gpu:1
-  mem: 128G
-  time: "04:00:00"
-  requeue: true
-  signal: SIGUSR1@90             # lets the trainer save & exit cleanly before the wall
-
 pipelines:
 
   dev:                            # the 78.90 Unlabelled-Argument-F1 baseline

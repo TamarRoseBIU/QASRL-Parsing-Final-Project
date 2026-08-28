@@ -28,8 +28,8 @@ rationale; it's not repeated here.
 
 WHAT'S RUN DOWNSTREAM OF THIS SCRIPT'S OUTPUT (dpo_pairs_test.json):
   - The LLM grammar-fix pass (llm_fix_grammar.py) IS run on this file, same
-    as for train -- see run_grammar_fix_test.sbatch, which points it at
-    dpo_pairs_test.json and writes dpo_pairs_test.grammar_fixed.json.
+    as for train -- run `llm_fix_grammar.py --input dpo_pairs_test.json
+    --output dpo_pairs_test.grammar_fixed.json` (it needs a GPU).
     (`maybe_llm_fix_question_grammar` below stays a no-op in THIS script for
     the same reason it's a no-op in build_dpo_data.py: the actual LLM call
     always lives in the separate llm_fix_grammar.py step, run afterward as
@@ -531,8 +531,8 @@ def maybe_llm_fix_question_grammar(
          are ungrammatical (see `adapt_question_to_predicate`). Both fields
          are written straight into the output JSON -- no separate flagging
          step needed, it's already part of every record.
-      2. Run `llm_fix_grammar.py --input dpo_pairs.json` (via
-         `sbatch run_grammar_fix.sbatch` on this cluster) as a second job.
+      2. Run `llm_fix_grammar.py --input dpo_pairs.json --output
+         dpo_pairs.grammar_fixed.json` as a second job (it needs a GPU).
          It scans that JSON for every `is_foreign=True` pair -- ALL of
          them, not just the `needs_review` subset -- and asks an LLM to
          clean up the grammar (or leave it alone if it's already fine).
@@ -966,15 +966,17 @@ def main():
              f"({n_add/len(records):.1%}), {n_truncate} truncate "
              f"({n_truncate/len(records):.1%}). {n_flagged} carry needs_review=True "
              f"({n_flagged / len(records):.1%}) and are_foreign -- these get cleaned up by "
-             f"the LLM grammar-fix pass next (see run_grammar_fix_test.sbatch), same as "
+             f"the LLM grammar-fix pass next (llm_fix_grammar.py --input "
+             f"dpo_pairs_test.json --output dpo_pairs_test.grammar_fixed.json), same as "
              f"for the train set. No manual-review pass is run on eval data, though -- "
              f"the grammar-fix pass's output is the final eval file, used as-is.")
 
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         json.dump(records, f, indent=2, ensure_ascii=False)
-    log.info(f"Wrote {OUTPUT_PATH}. Next step: sbatch run_grammar_fix_test.sbatch "
-             f"(writes dpo_pairs_test.grammar_fixed.json). No review_tool.html step "
-             f"after that -- point DPOTrainer's eval_dataset at the grammar-fixed file.")
+    log.info(f"Wrote {OUTPUT_PATH}. Next step: llm_fix_grammar.py --input "
+             f"dpo_pairs_test.json --output dpo_pairs_test.grammar_fixed.json. "
+             f"No review_tool.html step after that -- point DPOTrainer's "
+             f"eval_dataset at the grammar-fixed file.")
 
 
 if __name__ == "__main__":

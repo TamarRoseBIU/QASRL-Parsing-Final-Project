@@ -497,8 +497,8 @@ def maybe_llm_fix_question_grammar(
          are ungrammatical (see `adapt_question_to_predicate`). Both fields
          are written straight into the output JSON -- no separate flagging
          step needed, it's already part of every record.
-      2. Run `llm_fix_grammar.py --input dpo_pairs.json` (via
-         `sbatch run_grammar_fix.sbatch` on this cluster) as a second job.
+      2. Run `llm_fix_grammar.py --input dpo_pairs.json --output
+         dpo_pairs.grammar_fixed.json` as a second job (it needs a GPU).
          It scans that JSON for every `is_foreign=True` pair -- ALL of
          them, not just the `needs_review` subset -- and asks an LLM to
          clean up the grammar (or leave it alone if it's already fine).

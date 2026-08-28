@@ -190,7 +190,8 @@ def main():
         raise FileNotFoundError(
             f"Primary input path {args.input} does not exist. If this is the "
             f"default dev-set path, run build_dpo_data.py and then "
-            f"run_grammar_fix.sh first."
+            f"python llm_fix_grammar.py --input dpo_pairs.json "
+            f"--output dpo_pairs.grammar_fixed.json first."
         )
 
     log.info(f"Loading tokenizer from {args.tokenizer_dir} ...")
@@ -209,7 +210,8 @@ def main():
             raise FileNotFoundError(
                 f"Evaluation input path {args.eval_input} does not exist. "
                 f"If this is the default test-set path, run build_dpo_data_test.py "
-                f"and then the test-set grammar-fix job (run_grammar_fix_test.sh) "
+                f"and then the test-set grammar-fix pass (python llm_fix_grammar.py "
+                f"--input dpo_pairs_test.json --output dpo_pairs_test.grammar_fixed.json) "
                 f"first -- or pass --eval-input '' to fall back to splitting --input "
                 f"instead."
             )
