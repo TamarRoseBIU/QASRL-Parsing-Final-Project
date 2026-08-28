@@ -43,7 +43,7 @@ move in — which is what motivated the recall-targeted on-policy pairs that rep
 
 ```bash
 python build_dpo_data.py                  # -> dpo_pairs.json
-sbatch run_grammar_fix.sh                 # local vLLM on GPU -> dpo_pairs.grammar_fixed.json
+python llm_fix_grammar.py --input dpo_pairs.json --output dpo_pairs.grammar_fixed.json   # local vLLM on GPU
 python manual_fix_grammar.py              # -> dpo_pairs.grammar_fixed.manual_fixed.json
 ```
 

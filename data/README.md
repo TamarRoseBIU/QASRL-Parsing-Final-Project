@@ -124,7 +124,7 @@ rendering is the SFT adapter dir (`DEFAULT_TOKENIZER_DIR`, resolved from
 **Step 1 — mine on-policy samples from the SFT checkpoint over `dev`** (GPU; sharded).
 The mined shards are the *input* to the pair builder and already ship in
 `training/dpo/build_dataset/onpolicy_samples/`. Run once per shard (see the
-`build_dataset.mine_samples` block of `training/dpo/config.yaml` for the SLURM/env
+`build_dataset.mine_samples` block of `training/dpo/config.yaml` for the env
 details):
 
 ```bash

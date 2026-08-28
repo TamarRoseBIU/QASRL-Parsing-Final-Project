@@ -36,17 +36,13 @@ supervised checkpoint, so their gains are directly comparable.
 
 ## Results
 
-Unlabelled Argument F1 on the held-out `passive_red` test split:
+Unlabelled Argument F1 on the held-out test set split:
 
-| Stage | F1 | vs SFT |
-|-------|----|--------|
-| SFT (cross-entropy) | 78.90 | — |
-| DPO (on-policy pairs) | 79.59 ± 0.26 | +0.7 |
-| **GRPO** (F_β=2 reward) | **~80.6** | **+1.7** |
-
-GRPO is the winning system; DPO is the second, independently warm-started track. The
-GRPO figure is a split-half estimate that corrects for selecting the checkpoint on the
-same split it is reported on.
+| Stage                   | F1           | vs SFT   |
+| ----------------------- | ------------ | -------- |
+| SFT (cross-entropy)     | 78.90        | —        |
+| DPO (on-policy pairs)   | 79.59 ± 0.26 | +0.7     |
+| **GRPO** (F_β=2 reward) | **~80.6**    | **+1.7** |
 
 **→ [Detailed experiment documentation](evaluation/results/README.md)** — every
 experiment, its configuration and hyperparameters, the checkpoint it was scored at, and
@@ -84,27 +80,23 @@ diagnostic scripts were left out.
 ## How runs are configured
 
 There are **no shell launchers**. Each stage is a Python entry point plus a
-`config.yaml` capturing everything the old SLURM scripts held — conda env, SLURM
-resources, entry point, `PYTHONPATH`, hyperparameters, and a ready-to-copy `run:`
-command. Read the stage's `config.yaml`, then run the Python entry point directly
-(optionally wrapped in your own `sbatch`).
+`config.yaml` capturing everything needed to run it — conda env, entry point,
+`PYTHONPATH`, hyperparameters, and a ready-to-copy `run:` command. Read the
+stage's `config.yaml`, then run the Python entry point directly.
 
-| Stage | Configuration mechanism |
-|-------|-------------------------|
-| SFT | in-script constants (top of the `.py`) |
-| GRPO | environment variables (defaults in the `.py`) |
-| DPO | environment variables + CLI args |
-| Evaluation | CLI args, two conda envs |
+| Stage      | Configuration mechanism                       |
+| ---------- | --------------------------------------------- |
+| SFT        | in-script constants (top of the `.py`)        |
+| GRPO       | environment variables (defaults in the `.py`) |
+| DPO        | environment variables + CLI args              |
+| Evaluation | CLI args, two conda envs                      |
 
 ## Environments
 
-| Env | Purpose |
-|-----|---------|
+| Env           | Purpose                      |
+| ------------- | ---------------------------- |
 | `train_qwen3` | all training + GPU inference |
-| `eval` | CPU-only F1 scoring |
-
-GPU jobs run under SLURM, 1 GPU each. Set `<GPU_PARTITION>` / `<SLURM_ACCOUNT>` in the
-`config.yaml` files to your own cluster's partition and account.
+| `eval`        | CPU-only F1 scoring          |
 
 ## Model storage (not in this repo)
 
