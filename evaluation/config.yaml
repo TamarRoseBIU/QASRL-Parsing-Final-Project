@@ -42,13 +42,18 @@ summarize:
   run: python scripts/summarize_results.py
 
 # ---------------------------------------------------------------------------
-# LABELLED Argument F1 (optional) needs the bundled Scala FillQasrlSlots slot-filler
-# instead of add_dummy_slots.py. Toolchain shipped here: build.sbt, cs (coursier),
-# project/, qasrl/, src/, target/scala-2.12/. Build/run via sbt, then score the
-# filled output with scripts/evaluate_dataset.py the same way.
+# LABELLED Argument F1 (optional) needs the Scala FillQasrlSlots slot-filler instead of
+# add_dummy_slots.py. Shipped here: build.sbt, project/, src/. The qasrl library itself
+# comes from Maven Central; sbt fetches it on the first build. Build/run via sbt, then
+# score the filled output with scripts/evaluate_dataset.py the same way.
 # ---------------------------------------------------------------------------
 labelled_f1:
-  slot_filler: FillQasrlSlots (Scala; build.sbt + cs)
+  slot_filler: FillQasrlSlots (Scala; needs a JVM + sbt)
+  run: >
+    cd evaluation &&
+    sbt "runMain qasrl.slots.FillQasrlSlots <raw_pred>.csv
+    data/sentences/passive_red_sentences.csv <out>_filled_slots.csv"
+  note: see ./README.md - must run from evaluation/ (datasets/wiktionary is cwd-relative)
 
 # Adapter locations to evaluate. The two SFT adapters ARE committed, under
 # training/sft/adapters/; the GRPO and DPO adapters are not — produce them by running

@@ -55,32 +55,54 @@ the full results table, including the ablations and the two non-winning variants
 ## Repository layout
 
 ```
-repo_clean/
+QASRL-Parsing-Final-Project/
+├── LICENSE                    ← MIT
+├── requirements-train.txt    ← the train_qwen3 env (training + GPU inference)
+├── requirements-eval.txt     ← the eval env (CPU scoring)
+│
 ├── data/
-│   ├── README.md             ← how to access / build every dataset
+│   ├── README.md             ← every dataset: where it comes from, how to rebuild it
 │   └── download_data.py      ← fetch the base train/dev/test splits
 │
 ├── training/
-│   ├── run_full_pipeline.py  ← runs SFT → RL → inference → evaluation end to end
-│   ├── shared/               ← modules imported by more than one stage
-│   ├── sft/                  ← Stage 1: supervised fine-tuning (cross-entropy, LoRA)
-│   │   └── adapters/         (the two trained SFT adapters, 37 MB each)
-│   ├── grpo/                 ← Stage 2a: GRPO with recall-weighted F_β reward (WINNER)
+│   ├── run_full_pipeline.py  ← SFT → RL → checkpoint selection → inference → scoring
+│   ├── shared/               ← imported by more than one stage: the F_β reward,
+│   │                           inference helpers, the DPO data builder
+│   ├── sft/                  ← Stage 1: cross-entropy LoRA fine-tuning
+│   │   ├── adapters/         ← the two trained SFT adapters (37 MB each), one of which
+│   │   │                       GRPO and DPO warm-start from
+│   │   └── config.yaml
+│   ├── grpo/                 ← Stage 2a: GRPO on a recall-weighted F_β reward (WINNER)
 │   └── dpo/                  ← Stage 2b: DPO on on-policy preference pairs
-│       ├── build_dataset/        (reproduce the preference pairs)
-│       └── existing_dataset/     (the generated preference dataset, ready to train on)
+│       ├── build_dataset/    ← rebuild the pairs (mining + pair construction), plus
+│       │                       the superseded synthetic arm, kept for the record
+│       ├── existing_dataset/ ← the pairs as used, ready to train on
+│       └── eval_on_val.py    ← rank DPO checkpoints on the held-out dev slice
 │
-└── evaluation/               ← inference + scoring subproject
-    ├── config.yaml
-    ├── results/README.md     ← detailed experiment documentation
-    ├── scripts/              ← inference, slot filling, scoring, summarization
-    └── data/                 ← gold, model inputs, and the prediction CSVs behind
-                                the reported numbers
+└── evaluation/               ← inference + scoring
+    ├── README.md             ← what slots are, what the three metrics mean, how to score
+    ├── config.yaml           ← the exact commands and paths for each step
+    ├── scripts/              ← inference, slot filling, the scorer, summarization
+    ├── results/              ← one report per evaluation ever run, the summary tables,
+    │                           and README.md: the full experiment record
+    ├── data/
+    │   ├── gold/             ← the scoring reference (and its two derivation stages)
+    │   ├── model_input/      ← the prompts fed to inference
+    │   ├── model_output/     ← (empty) where inference writes raw predictions
+    │   ├── model_output_filled_slots/  ← the 5 prediction CSVs behind the reported
+    │   │                                 numbers, plus your own slot-filled output
+    │   └── sentences/        ← tokenized sentences, needed by the Scala slot-filler
+    │
+    └── the Scala slot-filler, for Labelled F1 only:
+        ├── src/main/scala/qasrl/slots/FillQasrlSlots.scala
+        ├── build.sbt, project/     ← sbt build; the qasrl library comes from Maven
+        └── datasets/wiktionary/    ← verb inflections it loads at runtime
 ```
 
 This repository contains **only the final, best-performing implementation of each
 stage**, plus the superseded DPO arm kept for the record. Intermediate ablations and
-diagnostic scripts were left out.
+diagnostic scripts were left out; the experiments behind them are documented in
+[`evaluation/results/README.md`](evaluation/results/README.md).
 
 ## How runs are configured
 
@@ -163,6 +185,10 @@ export QASRL_BASE_DIR=/path/to/your/model-storage
 
 ## Quickstart
 
+Every command below starts by activating a conda environment. If you have not created
+them yet, do that first — see [Environments](#environments) above (`conda create`, then
+`pip install -r requirements-train.txt` / `requirements-eval.txt`).
+
 Get the base data once (SFT/GRPO also fetch it at runtime; this makes it explicit):
 
 ```bash
@@ -208,9 +234,7 @@ to train on; rebuilding it is optional too.
 
 ### Evaluate an adapter
 
-Three steps from `evaluation/` — GPU inference in `train_qwen3`, then slot fill and
-scoring in `eval`. The exact commands are in `evaluation/config.yaml`; to re-score a
-prediction CSV that already ships, only the last step is needed:
+Scoring a prediction CSV that already ships takes one CPU command:
 
 ```bash
 conda activate eval
@@ -220,11 +244,13 @@ python scripts/evaluate_dataset.py \
     ./data/gold/gold_updated_passive_filled_slots.csv
 ```
 
-Labelled Argument F1 additionally needs the bundled Scala `FillQasrlSlots` slot-filler
-instead of `add_dummy_slots.py`.
+Scoring an adapter of your own takes three (inference → slot fill → score). See
+**[`evaluation/README.md`](evaluation/README.md)** for those commands and for what the
+metrics mean.
 
 ---
 
-See [`data/README.md`](data/README.md) for dataset details and
+See [`data/README.md`](data/README.md) for dataset details,
+[`evaluation/README.md`](evaluation/README.md) for the metrics and scoring pipeline, and
 [`evaluation/results/README.md`](evaluation/results/README.md) for the full experiment
 record.

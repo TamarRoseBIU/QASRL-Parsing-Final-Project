@@ -20,7 +20,6 @@ project/project/
 .bsp/
 .ammonite/
 /evaluation/out/
-/evaluation/qasrl/out/
 
 # sbt / build logs
 *.log

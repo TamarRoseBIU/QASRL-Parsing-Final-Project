@@ -1,4 +1,4 @@
-package example
+package qasrl.slots
 
 import java.nio.file.Paths
 import com.github.tototoshi.csv.{CSVReader, CSVWriter}

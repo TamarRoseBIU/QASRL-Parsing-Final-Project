@@ -10,6 +10,9 @@ This document is the evidence behind the numbers quoted there.
 
 ## 1. The metric
 
+[`../README.md`](../README.md) explains slots, the three metrics and the scoring commands.
+In short:
+
 **Unlabelled Argument F1** on the held-out `passive_red` **test** split, greedy decoding
 (`do_sample=False`). An argument counts as correct when its predicted span overlaps a
 gold span with IoU ≥ 0.3 under one-to-one matching. F1 is **micro**-averaged (global

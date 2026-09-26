@@ -181,15 +181,16 @@ Ships in place under `evaluation/data/`:
 |------|----------|
 | `data/model_input/` | prompt CSVs fed to the inference scripts (e.g. `passive_red.model_inputs.csv`) |
 | `data/gold/` | gold slot-filled CSVs used as the scoring reference (e.g. `gold_updated_passive_filled_slots.csv`) |
-| `data/ground_truth/` | source gold annotations |
-| `data/model_output/` | recorded raw model predictions per model |
-| `data/model_output_filled_slots/` | slot-filled predictions (input to `evaluate_dataset.py`) |
-| `data/sentences/` | tokenized/detokenized sentence data |
+| `data/model_output/` | **empty** — where inference writes raw predictions |
+| `data/model_output_filled_slots/` | slot-filled predictions (input to `evaluate_dataset.py`); the 5 shipped CSVs live here |
+| `data/sentences/` | tokenized/detokenized sentence data; the Scala slot-filler reads `passive_red_sentences.csv` |
 | `../results/` | recorded scorer output (`summary_data.csv`, `model_comparison.txt`) |
 
 The scoring path is: adapter → `run_qwen3_instruct_inference.py` → raw CSV in
 `model_output/` → dummy-slot fill (unlabelled) or Scala `FillQasrlSlots` (labelled) →
-`evaluate_dataset.py` vs the gold CSV.
+`evaluate_dataset.py` vs the gold CSV. See
+[`evaluation/README.md`](../evaluation/README.md) for what slots are and what each metric
+measures.
 
 **How the canonical gold was derived** (`gold_updated_passive_filled_slots.csv` is the
 single gold all reported numbers are scored against):
