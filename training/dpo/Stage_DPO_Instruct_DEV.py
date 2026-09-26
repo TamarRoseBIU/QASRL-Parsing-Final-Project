@@ -74,6 +74,20 @@ PREV_MODEL_DIR = pathlib.Path(os.environ.get(
     "QASRL_SFT_ADAPTER",
     str(BASE_DIR / "models_save_baseline" / PREV_STAGE / CE_RUN_NAME)))
 
+# Fail early and clearly if the warm-start adapter is missing: without this the
+# failure surfaces much later, inside PEFT, as an opaque path error.
+if not (PREV_MODEL_DIR / "adapter_config.json").is_file():
+    raise SystemExit(
+        f"SFT warm-start adapter not found: {PREV_MODEL_DIR}\n"
+        "DPO warm-starts from the SFT adapter. Either:\n"
+        "  1. run training/sft/ first (its default protocol writes exactly this "
+        "directory name), or\n"
+        "  2. export QASRL_SFT_ADAPTER=/path/to/your/sft-adapter\n"
+        "Note: the reported results warm-start from the SFT run selected on test "
+        "(...train_dev_val_test). A run with QASRL_SFT_SELECT_ON=dev_val writes a "
+        "different directory and is a validation check, not the reported chain."
+    )
+
 # Where this stage writes its outputs.
 # DPO_ARM tags the run so concurrent arms/seeds never share a checkpoint dir
 # (without it a second run would resume from the first one's checkpoints).

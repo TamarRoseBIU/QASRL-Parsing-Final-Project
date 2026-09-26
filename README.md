@@ -44,6 +44,10 @@ Unlabelled Argument F1 on the held-out test set split:
 | DPO (on-policy pairs)   | 79.59 ± 0.26 | +0.7     |
 | **GRPO** (F_β=2 reward) | **~80.6**    | **+1.7** |
 
+The 78.90 SFT checkpoint is the baseline used to initialize the reported GRPO/DPO
+experiments. A later SFT run evaluated on a held-out `dev_val` split reached 79.42 F1;
+see the experiment notes.
+
 **→ [Detailed experiment documentation](evaluation/results/README.md)** — every
 experiment, its configuration and hyperparameters, the checkpoint it was scored at, and
 the full results table, including the ablations and the two non-winning variants.
@@ -93,37 +97,59 @@ stage's `config.yaml`, then run the Python entry point directly.
 
 ## Environments
 
-| Env           | Purpose                      |
-| ------------- | ---------------------------- |
-| `train_qwen3` | all training + GPU inference |
-| `eval`        | CPU-only F1 scoring          |
+Two **conda** environments. Training pins a newer `transformers`/`trl` than the scorer,
+and the scorer needs neither a GPU nor the model, so they are kept separate.
 
-## Model storage (not in this repo)
+| Env           | Purpose                      | Python | Packages                 |
+| ------------- | ---------------------------- | ------ | ------------------------ |
+| `train_qwen3` | all training + GPU inference | 3.12   | `requirements-train.txt` |
+| `eval`        | CPU-only F1 scoring          | 3.10   | `requirements-eval.txt`  |
 
-Trained adapters, checkpoints, and run logs are read from / written to a storage root
-that is **intentionally not part of this repository** (multi-GB model state):
+```bash
+# training + GPU inference
+conda create -n train_qwen3 python=3.12 -y
+conda activate train_qwen3
+pip install -r requirements-train.txt
+
+# CPU-only scoring
+conda create -n eval python=3.10 -y
+conda activate eval
+pip install -r requirements-eval.txt
+```
+
+Keep the two names as they are: `run_full_pipeline.py` looks each interpreter up by env
+name (override with `--python_train` / `--python_eval`). The pinned versions are the ones
+the reported runs were produced with; if your CUDA version differs, install the matching
+`torch` wheel first and then re-run the `pip install`.
+
+## Trained adapters
+
+Every stage writes its adapters, checkpoints, and logs under one storage root:
 
 ```
 $QASRL_BASE_DIR/
-    ├── models_save_baseline/<STAGE>/<RUN_NAME>/      final LoRA adapters
-    ├── trainer_runs_baseline/<STAGE>/<RUN_NAME>/     checkpoint-*/
+    ├── models_save_baseline/<STAGE>/<RUN_NAME>/      final LoRA adapter (~40 MB)
+    ├── trainer_runs_baseline/<STAGE>/<RUN_NAME>/     checkpoint-*/ (~700 MB per run)
     └── logs_baseline/<STAGE>/<RUN_NAME>/
 ```
 
 `QASRL_BASE_DIR` defaults to `<repo>/runs`, so a fresh clone runs without editing any
-file. Point it at a filesystem with room for multi-GB adapters:
+file. The checkpoints are the bulky part — point it at a filesystem with a few GB free:
 
 ```bash
 export QASRL_BASE_DIR=/path/to/your/model-storage
 ```
 
-**The SFT LoRA adapter is not distributable** and is not included here. GRPO and DPO
-both warm-start from it. Either run the SFT stage first to produce it, or point
-`QASRL_SFT_ADAPTER` at your own:
+GRPO and DPO both warm-start from the SFT adapter, which is not included in this repo.
+Either run the SFT stage first to produce it, or point `QASRL_SFT_ADAPTER` at an
+adapter of your own:
 
 ```bash
 export QASRL_SFT_ADAPTER=/path/to/your/sft-adapter
 ```
+
+The base model needs no setup: every stage loads `Qwen/Qwen3-30B-A3B-Instruct-2507`
+from HuggingFace on first use.
 
 ---
 

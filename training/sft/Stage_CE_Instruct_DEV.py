@@ -7,7 +7,7 @@ Serves as the warm-start baseline adapter for downstream RL stages (GRPO / DPO).
 Key Mechanics:
 - Uses the chat template (enable_thinking=False) with system + user + assistant turns.
 - Masked Labels: Sets -100 on prompt tokens so loss is computed solely on completions.
-- Dynamic Splitting: Carves out a grouped sentence-level dev_val split when training on dev 
+- Dynamic Splitting: with QASRL_SFT_SELECT_ON=dev_val, carves a grouped sentence-level dev_val split 
   to prevent data leakage during validation.
 """
 
@@ -48,6 +48,24 @@ MODEL_VARIANT = "Instruct"   # "Base" or "Instruct"
 # Override with QASRL_SFT_TRAIN_ON=train.
 TRAIN_ON      = os.environ.get("QASRL_SFT_TRAIN_ON", "dev")   # "train" or "dev"
 assert TRAIN_ON in ("train", "dev"), f"QASRL_SFT_TRAIN_ON must be train|dev, got {TRAIN_ON!r}"
+
+# How the best checkpoint is chosen when TRAIN_ON="dev". Two protocols exist:
+#
+#   "test"     (DEFAULT) — the ORIGINAL baseline: train on all of dev, select the
+#                checkpoint by eval loss on test. Scores 78.90 Unlabelled Arg F1 and is
+#                the checkpoint the reported GRPO and DPO runs warm-start from. Writes
+#                RUN_NAME ..._train_dev_val_test, which is what those stages look for.
+#
+#   "dev_val"  — a later validation check, off the main experimental chain: carve a
+#                grouped 90/10 split out of dev, train on the 90% and select on the
+#                held-out 10%, never touching test. Scores 79.42. Use it to verify that
+#                the original test-based selection did not inflate the baseline; it is
+#                NOT the checkpoint the reported RL numbers were produced from.
+#
+# Override with QASRL_SFT_SELECT_ON=dev_val.
+SELECT_ON     = os.environ.get("QASRL_SFT_SELECT_ON", "test")   # "test" or "dev_val"
+assert SELECT_ON in ("test", "dev_val"), \
+    f"QASRL_SFT_SELECT_ON must be test|dev_val, got {SELECT_ON!r}"
 # ────────────────────────────────────────────────────────────────────────────
 
 # Auto-derived — no manual edits needed below this line
@@ -58,9 +76,10 @@ SUBSET_SIZE  = 1000   # validation samples taken from train when TRAIN_ON="dev"
 DEV_VAL_FRACTION = 0.10   # fraction of DEV held out for validation (90% train / 10% val)
 SPLIT_SEED       = 42     # fixed seed → reproducible, leak-free DEV train/val split
 # ── MASTER CONFIGURATION BLOCK ──
-# VALIDATE_ON is a dict when training on "train"; when training on "dev" we validate
-# ONLY on the held-out DEV validation split ("dev_val") — never on TEST.
-VALIDATE_ON = {"dev": "dev", "test": "test"} if TRAIN_ON == "train" else "dev_val"
+# VALIDATE_ON is a dict when training on "train"; when training on "dev" it is
+# whichever split SELECT_ON names ("test" for the original baseline, "dev_val" for the
+# leak-free check).
+VALIDATE_ON = {"dev": "dev", "test": "test"} if TRAIN_ON == "train" else SELECT_ON
 import pathlib
 import transformers
 import glob
@@ -95,7 +114,7 @@ MODEL_ID = f"Qwen/{MODEL}"
 CURRENT_STAGE = "Stage_CE"
 
 # Automatically changes directory names based on your top configuration choices
-VALIDATE_ON_STR = "dev+test" if TRAIN_ON == "train" else "dev_val"
+VALIDATE_ON_STR = "dev+test" if TRAIN_ON == "train" else SELECT_ON
 RUN_NAME = f"{MODEL}_train_{TRAIN_ON}_val_{VALIDATE_ON_STR}"
 
 CHECKPOINT_DIR = BASE_DIR / "trainer_runs_baseline" / CURRENT_STAGE / RUN_NAME
@@ -131,10 +150,13 @@ def load_and_prepare_dataset():
     _URL = "https://nlp.biu.ac.il/~ron.eliav/qasrl/V-passive_red/"
 
     # Base files mapping.
-    # When TRAIN_ON="dev" we deliberately load ONLY dev.json, When TRAIN_ON="train" we keep
-    # the original behaviour (train for training, dev+test for validation).
+    # When TRAIN_ON="train" we keep the original behaviour (train for training,
+    # dev+test for validation). When TRAIN_ON="dev" we load dev.json, plus test.json
+    # only if it is the selection split — with SELECT_ON="dev_val", test is never fetched.
     if TRAIN_ON == "train":
         raw_urls = {"train": _URL + "train.json", "dev": _URL + "dev.json", "test": _URL + "test.json"}
+    elif SELECT_ON == "test":
+        raw_urls = {"dev": _URL + "dev.json", "test": _URL + "test.json"}
     else:
         raw_urls = {"dev": _URL + "dev.json"}
     ds_dict = {}
@@ -164,7 +186,7 @@ def load_and_prepare_dataset():
     # of a given sentence goes entirely to train OR entirely to val, so a sentence can
     # never appear in both halves (prevents leakage across predicates of the same
     # sentence). The fixed SPLIT_SEED makes the partition identical on every rerun.
-    if TRAIN_ON == "dev":
+    if TRAIN_ON == "dev" and SELECT_ON == "dev_val":
         dev = ds_dict["dev"]
         unique_sids = sorted(set(dev["sentence_id"]))   # sort → deterministic before seeded shuffle
         rng = random.Random(SPLIT_SEED)
@@ -177,6 +199,14 @@ def load_and_prepare_dataset():
             f"DEV grouped split (seed={SPLIT_SEED}, val_frac={DEV_VAL_FRACTION}): "
             f"{len(unique_sids)} sentences → {len(unique_sids) - n_val} train / {n_val} val | "
             f"{len(ds_dict['dev_train'])} train / {len(ds_dict['dev_val'])} val examples"
+        )
+        return DatasetDict(ds_dict)
+
+    if TRAIN_ON == "dev":
+        # Original baseline: train on all of dev, select on test. No carve.
+        logging.info(
+            f"DEV, no carve (SELECT_ON=test): {len(ds_dict['dev'])} train examples, "
+            f"selecting on test ({len(ds_dict['test'])} examples)"
         )
         return DatasetDict(ds_dict)
 
@@ -338,7 +368,8 @@ training_args = TrainingArguments(
 
 # When training on DEV, train on the held-out DEV *train* split and evaluate on the
 # held-out DEV *val* split — never on the training examples, and never on TEST.
-train_split_key = "dev_train" if TRAIN_ON == "dev" else TRAIN_ON
+train_split_key = ("dev_train" if SELECT_ON == "dev_val" else "dev") \
+    if TRAIN_ON == "dev" else TRAIN_ON
 
 trainer = Trainer(
     model=model,
@@ -347,7 +378,7 @@ trainer = Trainer(
     eval_dataset=(
         {"dev": tokenized_ds["dev"], "test": tokenized_ds["test"]}
         if TRAIN_ON == "train"
-        else tokenized_ds["dev_val"]
+        else tokenized_ds[VALIDATE_ON]
     ),
     data_collator=DataCollatorForSeq2Seq(tokenizer, model=model, padding=True)
 )

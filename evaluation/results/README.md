@@ -18,13 +18,16 @@ reported.
 
 Labelled Argument F1 and Unlabelled Role F1 are also emitted by the scorer and appear in
 each report, but the headline comparison throughout the project is Unlabelled Argument
-F1. Labelled F1 additionally depends on the Scala `FillQasrlSlots` slot-filler; the
-numbers here use `add_dummy_slots.py`, so their _labelled_ column is not meaningful.
+F1. Labelled F1 additionally depends on the Scala `FillQasrlSlots` slot-filler, so it is
+only meaningful for runs whose predictions went through it (rows 2 and 3). The rest were
+slot-filled with `add_dummy_slots.py`, which writes `_` into every slot, so their
+_labelled_ column is an artifact — read their unlabelled rows only.
 
 ### Reproducing a number
 
 Any experiment marked "CSV ships" below can be re-scored on a CPU with no GPU and no
-model:
+model, in the `eval` env (`pip install -r ../../requirements-eval.txt` — see
+[Environments](../../README.md#environments)):
 
 ```bash
 cd evaluation
@@ -44,7 +47,7 @@ report is the record.
 | --- | ---------------------------------------- | ----- | :-------: | :---: | :---: | :-------: |
 | 1   | Zero-shot Qwen3-Instruct                 | none  |   67.49   | 73.52 | 62.38 |     —     |
 | 2   | CE on the full `train` split             | SFT   |   73.89   | 91.34 | 62.04 |    ✅     |
-| 3   | **CE on `dev`, selected on `test`**      | SFT   | **78.90** | 84.84 | 73.74 |     —     |
+| 3   | **CE on `dev`, selected on `test`**      | SFT   | **78.90** | 84.84 | 73.74 |    ✅     |
 | 4   | CE on `dev`, selected on a `dev` holdout | SFT   |   79.42   | 82.23 | 76.80 |    ✅     |
 | 5   | DPO, synthetic pairs, selected ckpt      | DPO   |   79.01   | 84.73 | 74.02 |     —     |
 | 6   | DPO, synthetic pairs, final epoch        | DPO   |   78.77   | 84.52 | 73.76 |     —     |
@@ -86,25 +89,30 @@ All three use the recipe above. They differ only in **which split they train on*
 **how the checkpoint is chosen** — and only one of them is the checkpoint the RL stages
 build on.
 
-|  #  | Train split               | Selection                                | `QASRL_SFT_TRAIN_ON` |    F1     |
-| :-: | ------------------------- | ---------------------------------------- | -------------------- | :-------: |
-|  2  | full `train` (92,805 ex.) | `eval_dev_loss`                          | `train`              |   73.89   |
-|  3  | `dev` (2,406 ex.)         | on **`test`**                            | `dev` _(default)_    | **78.90** |
-|  4  | 90% of `dev`              | on a held-out `dev_val` slice (ckpt-600) | `dev` _(default)_    |   79.42   |
+|  #  | Train split               | Selection                                | How to run it                 |    F1     |
+| :-: | ------------------------- | ---------------------------------------- | ----------------------------- | :-------: |
+|  2  | full `train` (92,805 ex.) | `eval_dev_loss`                          | `QASRL_SFT_TRAIN_ON=train`    |   73.89   |
+|  3  | `dev` (2,406 ex.)         | on **`test`**                            | _(the default)_               | **78.90** |
+|  4  | 90% of `dev`              | on a held-out `dev_val` slice (ckpt-600) | `QASRL_SFT_SELECT_ON=dev_val` |   79.42   |
 
 Rows 3 and 4 are the same training data and differ only in _how the checkpoint was
 chosen_. The RL comparison is anchored on **78.90** throughout: GRPO +1.7 and DPO +0.7
 are both measured against it.
 
-**Why 78.90 stays the headline.** It is the figure the write-up reports, and the run's
-own scorer report backs it. `Stage_CE_Instruct_DEV.py` as shipped implements the
-_sound_ protocol instead — a deterministic grouped 90/10 split of `dev` by
-`sentence_id` (`DEV_VAL_FRACTION=0.10`, `SPLIT_SEED=42`), training on the 90% and
-selecting on the held-out `dev_val`, never touching `test`. That variant measures
-**79.42** — _above_ the headline, so the RL gains are not an artifact of a weak SFT
-reference. Run 3 is therefore documented but not reproducible from the shipped default.
+**Why 78.90 stays the headline.** The original SFT baseline was trained on `dev` and
+evaluated on `test`, obtaining **78.90** F1; the GRPO and DPO experiments were
+initialized from this checkpoint. As a subsequent validation check, SFT was retrained
+and evaluated on a held-out `dev_val` split — a grouped 90/10 split of `dev` by
+`sentence_id` (fraction 0.10, seed 42), with `test` never loaded — obtaining **79.42**
+F1 at checkpoint-600. This check did not indicate an advantage from the original
+test-set evaluation, and the reported GRPO/DPO results remain based on the original
+78.90 SFT checkpoint. Row 4 therefore sits off to the side as a sanity check, not part
+of the main experimental chain.
 
-Reproduce row 2 with `QASRL_SFT_TRAIN_ON=train`; row 4 is the shipped default.
+Reproducing each row: row 3 is the script's default; row 4 is
+`QASRL_SFT_SELECT_ON=dev_val`; row 2 is `QASRL_SFT_TRAIN_ON=train`. The default writes
+the run directory the RL stages look for, so a plain SFT → GRPO/DPO run reproduces the
+reported chain.
 
 ---
 
@@ -259,10 +267,17 @@ comparable to the DPO gain itself.
 reports by `scripts/summarize_results.py`. Deleting a report silently shrinks the table
 on the next regeneration.
 
-**Four of the ten runs also ship their prediction CSV** under
-`evaluation/data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/` (rows 2, 4, 7,
-8), so their numbers re-derive without a GPU. The other six are a record of the run and
+**Five of the ten runs also ship their prediction CSV** under
+`evaluation/data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/` (rows 2, 3, 4, 7,
+8), so their numbers re-derive without a GPU. The other five are a record of the run and
 its score.
+
+The two SFT CSVs are easy to mix up, so they are named for their selection protocol:
+
+| File | Row | What it is |
+| ---- | :-: | ---------- |
+| `passive_red_output_SFT_dev_selected_on_test_filled_slots.csv` | 3 | **78.90 — the reported SFT baseline, and the checkpoint the reported GRPO/DPO runs warm-start from.** Slots filled by the Scala `FillQasrlSlots`, so its labelled figure (53.72) is meaningful. |
+| `passive_red_output_SFT_dev_heldout_filled_slots.csv` | 4 | 79.42 — the later `dev_val` held-out sanity check. Not part of the reported RL chain. Dummy slots, so read the unlabelled row only. |
 
 ### Placeholder-corrected F1
 

@@ -25,9 +25,9 @@ MODEL       = "Qwen3-30B-A3B-Instruct-2507"
 CE_RUN_NAME = f"{MODEL}_train_dev_val_test"
 PREV_STAGE  = "Stage_CE"
 
-# The SFT (CE) adapter directory, used here only for its tokenizer. It is NOT
-# distributable (multi-GB LoRA adapter on lab model storage) -- set QASRL_SFT_ADAPTER
-# to your own SFT adapter dir, or leave it to fall back to the BASE_DIR layout.
+# The SFT (CE) adapter directory, used here only for its tokenizer. It is not
+# committed to this repo -- set QASRL_SFT_ADAPTER to your own SFT adapter dir,
+# or leave it to fall back to the BASE_DIR layout.
 # QASRL_SFT_ADAPTER is the single place every stage resolves the adapter from.
 DEFAULT_TOKENIZER_DIR = os.environ.get(
     "QASRL_SFT_ADAPTER",

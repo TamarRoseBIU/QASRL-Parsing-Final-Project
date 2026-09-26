@@ -1,0 +1,14 @@
+# Scoring  ->  conda env `eval` (Python 3.10, CPU only, no GPU and no model)
+#
+#   conda create -n eval python=3.10 -y && conda activate eval
+#   pip install -r requirements-eval.txt
+#
+# This is everything the scoring scripts import: add_dummy_slots.py,
+# evaluate_dataset.py, evaluate.py, run_evaluation.py, summarize_results.py.
+# GPU inference (run_qwen3_instruct_inference.py) runs in `train_qwen3` instead,
+# so torch and transformers are not needed here.
+
+pandas==2.3.3
+numpy==2.2.6
+networkx==3.4.2           # one-to-one span matching in evaluate.py
+tqdm==4.67.1

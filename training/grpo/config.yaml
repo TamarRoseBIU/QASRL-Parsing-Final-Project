@@ -39,8 +39,8 @@ run: >
   python Stage_GRPO_Instruct_DEV.py
 
 # Warm-start: the frozen SFT (CE) LoRA adapter acts as both init and KL reference.
-# NOT DISTRIBUTABLE — this is a multi-GB LoRA adapter on lab model storage and is not
-# in this repo. Produce it by running the SFT stage (training/sft/), or set
+# NOT IN THIS REPO — the SFT LoRA adapter (~40 MB) is not committed here.
+# Produce it by running the SFT stage (training/sft/), or set
 # QASRL_SFT_ADAPTER to your own. Resolved as:
 warm_start_adapter_env: QASRL_SFT_ADAPTER   # set this to the dir training/sft/ wrote
 warm_start_adapter_fallback: ${QASRL_BASE_DIR}/models_save_baseline/Stage_CE/<CE_RUN_NAME>

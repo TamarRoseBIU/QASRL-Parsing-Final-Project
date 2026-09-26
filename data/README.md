@@ -7,8 +7,8 @@ This project uses three kinds of data:
    `training/dpo/existing_dataset/`.
 3. **Evaluation gold/inputs** — ship inside `evaluation/data/`.
 
-There is intentionally **no copy of the multi-GB base splits, caches, or superseded
-preference-pair variants** in this repo — the base data is fetched from its canonical
+There is intentionally **no copy of the base splits (~220 MB), their caches, or the
+superseded preference-pair variants** in this repo — the base data is fetched from its canonical
 URL, and only the DPO artifacts the winning pipeline actually consumes are included.
 
 ---
@@ -117,7 +117,8 @@ training/dpo/existing_dataset/val_selection_d2_onpolicy.json  ← recorded ckpt 
 
 ### 2d. Rebuilding it from scratch
 
-Two steps. Both run in the `train_qwen3` conda env; the tokenizer used for prompt
+Two steps. Both run in the `train_qwen3` conda env (see
+[Environments](../README.md#environments) for how to create it); the tokenizer used for prompt
 rendering is the SFT adapter dir (`DEFAULT_TOKENIZER_DIR`, resolved from
 `$QASRL_SFT_ADAPTER`).
 
@@ -195,16 +196,21 @@ apostrophe belonged) → quote repair → `passive_red_test_gold_quotefixed_inte
 (the 6 core columns, quotes fixed) → Scala `FillQasrlSlots` (adds the 9 slot columns) →
 `gold_updated_passive_filled_slots.csv`.
 
-### The three headline prediction files
+### The shipped prediction files
 
-`data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/` ships the prediction CSVs
-behind the three numbers the write-up reports. Each was re-scored against
-`gold_updated_passive_filled_slots.csv` and reproduces its recorded figure exactly,
-down to the TP/FP/FN counts:
+`data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/` ships these prediction
+CSVs. Each was re-scored against `gold_updated_passive_filled_slots.csv` and reproduces
+its recorded figure exactly, down to the TP/FP/FN counts. **Two SFT files ship, and the
+distinction matters:** `..._dev_selected_on_test` is the reported 78.90 baseline and the
+checkpoint the GRPO/DPO experiments were initialized from; `..._dev_heldout` is the later
+`dev_val` sanity check, not part of the reported RL chain (see
+[the experiment notes](../evaluation/results/README.md#3-stage-1--sft-cross-entropy-lora)).
 
 | File | Stage | P | R | **Unlab Arg F1** | TP / FP / FN |
 |------|-------|---|---|------|--------------|
-| `passive_red_output_SFT_dev_heldout_filled_slots.csv` | SFT, clean `dev_val` selection | 82.23 | 76.80 | **79.42** | 6695 / 1447 / 2023 |
+| `passive_red_output_CE_train_split_filled_slots.csv` | SFT on the full `train` split (baseline-table row) | 91.34 | 62.04 | **73.89** | 5409 / 513 / 3309 |
+| `passive_red_output_SFT_dev_selected_on_test_filled_slots.csv` | **SFT baseline** — `dev`, selected on `test`; the GRPO/DPO warm start | 84.84 | 73.74 | **78.90** | 6429 / 1149 / 2289 |
+| `passive_red_output_SFT_dev_heldout_filled_slots.csv` | SFT `dev_val` sanity check (not the RL warm start) | 82.23 | 76.80 | **79.42** | 6695 / 1447 / 2023 |
 | `passive_red_output_GRPO_beta2_ckpt3600_filled_slots.csv` | GRPO, β=2 @ ckpt-3600 | 79.60 | 82.26 | **80.90** | 7171 / 1838 / 1547 |
 | `passive_red_output_DPO_D2_onpolicy_ckpt150_filled_slots.csv` | DPO, on-policy @ ckpt-150 (best seed) | 81.34 | 78.36 | **79.82** | 6831 / 1567 / 1887 |
 
@@ -217,13 +223,21 @@ python scripts/evaluate_dataset.py \
     data/gold/gold_updated_passive_filled_slots.csv
 ```
 
-> **Read the *Unlabelled* rows only.** These three were slot-filled by
-> `scripts/add_dummy_slots.py`, which writes `_` into every question slot (verified:
-> all rows all-`_`). That is the intended path for the unlabelled metric — the argument
-> spans are real — but it means the **Labelled** Argument figures the scorer prints for
-> these files are an artifact of the placeholder slots and are not reportable. Labelled
-> F1 requires the Scala `FillQasrlSlots` path (see §3 above); the labelled numbers in the
-> write-up come from files produced that way.
+> **Which files carry real slots.** Verified per file:
+>
+> | File | Slots | Labelled figure |
+> |------|-------|-----------------|
+> | `..._CE_train_split` | real (Scala `FillQasrlSlots`) | meaningful |
+> | `..._SFT_dev_selected_on_test` | real (Scala `FillQasrlSlots`) | meaningful (53.72) |
+> | `..._SFT_dev_heldout` | dummy — every slot `_` | **not reportable** |
+> | `..._GRPO_beta2_ckpt3600` | dummy — every slot `_` | **not reportable** |
+> | `..._DPO_D2_onpolicy_ckpt150` | dummy — every slot `_` | **not reportable** |
+>
+> `scripts/add_dummy_slots.py` writes `_` into every question slot. That is the intended
+> path for the unlabelled metric — the argument spans are real — but the **Labelled**
+> Argument figures the scorer prints for those three files are an artifact of the
+> placeholder slots. Labelled numbers also drift ~±0.02 between runs, so on the two
+> real-slot files treat the last decimal as noise.
 
 ### GRPO sits on a plateau, not a peak
 

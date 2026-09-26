@@ -10,19 +10,24 @@ python: python                  # the activated env's interpreter
 
 # Storage root for checkpoints / saved adapters / logs. The scripts read this from
 # the QASRL_BASE_DIR environment variable and fall back to <repo>/runs.
-# Point it at a filesystem with room for multi-GB adapters.
+# Adapters are ~40 MB each; the checkpoint dirs are ~700 MB per run.
 base_dir_env: QASRL_BASE_DIR
 
 pipelines:
 
-  dev:                            # the 78.90 Unlabelled-Argument-F1 baseline
+  dev:                            # the 78.90 Unlabelled-Argument-F1 baseline (DEFAULT)
     entrypoint: Stage_CE_Instruct_DEV.py
-    description: LoRA SFT on the clean `dev` split; validates on `test`.
+    description: >
+      LoRA SFT on the clean `dev` split, selecting the checkpoint on `test`. This is
+      the reported SFT baseline (78.90) and the checkpoint the reported GRPO and DPO
+      runs warm-start from. It is the script's default, so the RL stages find this
+      adapter by name with no environment variable set.
     run: python Stage_CE_Instruct_DEV.py
     # in-script constants (Stage_CE_Instruct_DEV.py):
     hyperparameters:
       MODEL_VARIANT: Instruct
       TRAIN_ON: dev
+      SELECT_ON: test               # QASRL_SFT_SELECT_ON; "test" is the default
       VALIDATE_ON: test
       lora_r: 8
       lora_alpha: 16
@@ -32,10 +37,28 @@ pipelines:
       num_train_epochs: 5
       per_device_train_batch_size: 2
       gradient_accumulation_steps: 4
+    run_name: Qwen3-30B-A3B-Instruct-2507_train_dev_val_test
+    result: 78.90 Unlabelled Argument F1
+    # RUN_NAME encodes the selection split, so it changes with SELECT_ON. GRPO/DPO
+    # fall back to exactly this name, so the default chain needs no env var; set
+    # QASRL_SFT_ADAPTER to override.
+
+  dev_heldout_check:              # the 79.42 validation check -- NOT the reported chain
+    entrypoint: Stage_CE_Instruct_DEV.py     # same script, SELECT_ON switched
+    description: >
+      Same recipe, but carves a grouped 90/10 split out of `dev` (by sentence_id,
+      seed 42), trains on the 90% and selects on the held-out 10%, never loading
+      `test`. Run to confirm that selecting on test did not inflate the baseline:
+      it scores 79.42, i.e. above 78.90. It is a check off to the side -- the
+      reported GRPO/DPO numbers warm-start from the `dev` pipeline above, not this.
+    run: QASRL_SFT_SELECT_ON=dev_val python Stage_CE_Instruct_DEV.py
+    env:
+      QASRL_SFT_SELECT_ON: "dev_val"
+    # hyperparameters: identical to `dev`; only the selection split differs
+    dev_split: {fraction: 0.10, seed: 42, grouped_by: sentence_id}
+    selected_checkpoint: checkpoint-600
     run_name: Qwen3-30B-A3B-Instruct-2507_train_dev_val_dev_val
-    # RUN_NAME encodes the validation mode, so it changes with it. GRPO/DPO locate
-    # this adapter via QASRL_SFT_ADAPTER rather than by name -- point that env var
-    # at whatever directory this stage writes.
+    result: 79.42 Unlabelled Argument F1
 
   train:                          # the 73.89 full-train-split CE baseline row
     entrypoint: Stage_CE_Instruct_DEV.py     # same script, TRAIN_ON switched
