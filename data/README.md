@@ -15,17 +15,33 @@ URL, and only the DPO artifacts the winning pipeline actually consumes are inclu
 
 ## 1. Base QA-SRL data (SFT + GRPO)
 
-The SFT and GRPO scripts do **not** read a local data file — they download the splits
-directly from the project's canonical host and cache them next to the script:
+`passive_red` is a QA-SRL corpus of Wikinews and Wikipedia sentences. One example is a
+`(sentence, predicate)` group with its gold question–answer pairs:
+
+| Split | Size | Groups | Used for |
+| ----- | ---- | ------ | -------- |
+| `train` | 204 MB | 92,805 | **not** used for training here — see below |
+| `dev`   | 7.9 MB | 2,406  | what every stage trains on |
+| `test`  | 7.3 MB | 2,450  | the held-out split all reported numbers are measured on |
+
+**Why train on `dev` rather than `train`?** `train` is large but noisily annotated, while
+`dev` is densely and carefully annotated. The same recipe scores **78.90** trained on
+`dev` against **73.89** trained on the 92k `train` split, so `dev` is the deliberate
+choice — not an oversight.
+
+**How checkpoints are chosen, given that `dev` is the training data.** A stage cannot
+select its checkpoint on data it trained on, so GRPO selects on one half of `test` and
+reports on the other (this is the "split-half estimate" behind the ~80.6 headline), and
+DPO selects on a held-out slice of `dev` carved out before training.
+
+The stages download the splits themselves on first use and cache them next to the script,
+so no setup is needed:
 
 ```
-https://nlp.biu.ac.il/~ron.eliav/qasrl/V-passive_red/train.json
-https://nlp.biu.ac.il/~ron.eliav/qasrl/V-passive_red/dev.json
-https://nlp.biu.ac.il/~ron.eliav/qasrl/V-passive_red/test.json
+https://nlp.biu.ac.il/~ron.eliav/qasrl/V-passive_red/{train,dev,test}.json
 ```
 
-To materialize them locally (offline use / explicit provenance), run the download
-helper — it fetches the same three splits:
+To fetch them explicitly instead — for offline use, or just to see them:
 
 ```bash
 conda activate train_qwen3              # either env works: only requests is needed
@@ -33,15 +49,8 @@ python download_data.py                 # -> ./raw/{train,dev,test}.json
 python download_data.py --splits dev test
 ```
 
-- `Stage_CE_Instruct_DEV.py` and `Stage_GRPO_Instruct_DEV.py` build the split URL
-  as `_URL + "<split>.json"` and load it via `datasets`/`requests`. No action needed —
-  the first run fetches (and locally caches) the data.
-- **Split usage (important):** the model is trained on the more exhaustive **`dev`** split, 
-  not the 92k **`train`** split. `test` is the held-out metric. Because `dev` is also
-  GRPO's training set, checkpoints are never selected on data the stage trained on:
-  GRPO uses a split-half protocol over `test` (select on one half, report the other,
-  which is why the headline is quoted as a split-half estimate), and DPO uses a
-  model-independent held-out `dev` slice.
+That host is the only place data is fetched from; every other dataset this project uses
+ships in the repo.
 
 
 ---
@@ -79,32 +88,32 @@ provenance/bookkeeping.
 
 ### 2b. How the pairs are constructed
 
-Two ways of producing the `rejected` side were tried, and the distinction is the main
-experimental variable:
+DPO needs a better and a worse answer for each group. Where the *worse* one comes from
+was the experiment:
 
-- **Off-policy** (the first attempt, superseded — see
-  `training/dpo/build_dataset/synthetic_add_truncate/`): negatives are *synthesised* by
-  corrupting the gold completion (drop a QA pair, or inject wrong-role ones). They are
-  cheap and need no GPU, but they are not errors the model actually makes, so the
-  preference signal partly teaches it to avoid mistakes it was never going to produce.
-- **On-policy** (what ships and what is reported): both sides are real samples from the
-  SFT model, so every pair contrasts two outputs the model genuinely produces. This is
-  the arm that yielded 79.59 ± 0.26.
+- **First attempt (superseded, kept under
+  `training/dpo/build_dataset/synthetic_add_truncate/`):** corrupt the gold answer — drop
+  a QA pair, or paste in a wrong one. Cheap and needs no GPU, but these are not mistakes
+  the model actually makes, so part of the signal teaches it to avoid errors it would
+  never have produced.
+- **What ships:** both sides are real samples from the SFT model, so each pair contrasts
+  two outputs it genuinely produces. This is the arm that reached 79.59 ± 0.26.
 
-These are the **on-policy recall** pairs. Both sides are sampled from the SFT model
-itself, and the negative is chosen to isolate *recall* (not general quality):
+In the shipped pairs, for each group the model is sampled k=8 times and every sample is
+scored against gold:
 
-- `chosen`  = the highest-**F_β=2** sample among k on-policy samples of the group.
-- `rejected`= the **lowest-recall** sample subject to a **precision floor (0.6)**; the
-  pair is dropped unless the negative is strictly recall-deficient. This yields a
-  "same precision, fewer arguments" contrast (~2.8× recall-dominant), directly
-  targeting the model's tendency to under-generate adjunct roles.
-- **Validation holdout:** a deterministic md5-parity slice of the `dev` groups
-  (`val_bucket()` in `build_onpolicy_pairs.py`) is written to `dpo_val.jsonl`. It is
-  model-independent and reproducible, so every arm sees the same train/val partition,
-  and `test.json` is not used for selection.
+- `chosen` — the sample with the best F_β=2 score (β=2 weights recall over precision).
+- `rejected` — the sample with the *lowest recall*, but only if its precision is still
+  above **0.6**. That floor is what makes the pair say "you missed arguments" rather than
+  "you wrote nonsense": across the shipped set the two sides differ by +0.38 in recall and
+  only +0.14 in precision, and the rejected side names about one argument fewer than gold.
+  Pairs that fail the floor, or whose two sides are too close (`--min-margin 0.15`), are
+  dropped.
+- **The validation slice** (`dpo_val.jsonl`) is picked by hashing each group's id, so it
+  is the same slice on every run and independent of the model. `test` is never used to
+  choose a DPO checkpoint.
 
-Shipped counts: `dpo_train.jsonl` = 1232 pairs, `dpo_val.jsonl` = 239 pairs.
+Shipped counts: 1,232 training pairs and 239 validation pairs.
 
 
 ### 2c. Where it lives
@@ -252,56 +261,13 @@ python scripts/evaluate_dataset.py \
 > placeholder slots. Labelled numbers also drift ~±0.02 between runs, so on the two
 > real-slot files treat the last decimal as noise.
 
-### GRPO sits on a plateau, not a peak
-
-Three of the shipped reports are **reward-ablation runs**, not competing headline claims —
-they exist to show the GRPO result is robust to the reward's β rather than a lucky setting:
-
-| β | checkpoint | Unlab Arg F1 | report |
-|---|---|---|---|
-| 1.0 (control) | 4812 | 79.66 | not shipped |
-| 1.5 | 3600 | 80.98 | `…~posthoc_exp2c_b1p5_ckpt3600_…` |
-| **2.0 (headline)** | **3600** | **80.90** | `…~passive_red_output_GRPO_beta2_ckpt3600_…` |
-| 3.0 | 3600 | 80.99 | *(matched-step figure; the shipped report is ckpt-4000 at 81.07)* |
-
-At matched step 3600 the three settings span **80.90–80.99 — a spread of 0.09**, i.e. noise.
-The gain comes from using **β > 1 at all** (79.66 → ~81, about +1.3), not from tuning β to a
-particular value. So the β=2 headline is a representative point on a flat optimum.
-
-`summary_data.csv` (machine-readable) and `model_comparison.txt` (the same data rendered)
-are the accumulated scorer output across the whole project.
-
-Both are *derived* files. The per-run `<model>~<run>.txt` reports in the same directory
-are the raw scorer output they are built from, and they ship alongside so the summary is
-regenerable:
-
-```bash
-conda activate eval
-cd evaluation
-# score one run: writes results/<model>~<run>.txt, then refreshes both summary files
-python scripts/run_evaluation.py <predictions.csv> <gold.csv>
-python scripts/summarize_results.py          # rebuild the summaries alone
-```
-
-> `summarize_results.py` rebuilds the summaries **from whatever `.txt` reports it finds**,
-> Do not run it against an empty or partial `results/` — it overwrites rather than merges.
-> The `Method` column in `model_comparison.txt` is hand-curated for the
-> post-hoc runs (the parser emits `N/A` for tags it does not recognise, such as `DPO`);
-> re-running the generator resets those labels and they must be re-applied.
-
-**Metric stability.** The Unlabelled figures are deterministic — re-scoring reproduces
-them exactly, counts included. The **Labelled** figures drift by ~±0.02 F1 between
-identical runs (observed 39.66 / 39.67 / 39.68 on one file), so treat their last decimal
-as noise. This is a second reason not to read the labelled column on the dummy-slot files
-described above.
+The scores themselves, including which reward settings were ablated and why, are in
+[`evaluation/results/README.md`](../evaluation/results/README.md). How to run the scorer
+is in [`evaluation/README.md`](../evaluation/README.md).
 
 ### Wiktionary inflection data (`evaluation/datasets/wiktionary/`)
 
-The **labelled** F1 path only: `FillQasrlSlots.scala` loads `en_verb_inflections.txt`
-from this directory at runtime to inflect verbs. The `.txt` files here are the shipped
-artifact and are all a runner needs — nothing regenerates them as part of the pipeline.
-
-> The `extract_english_*.py` scripts in that directory are **upstream Python 2** tooling
-> that originally produced these files from a raw Wiktionary dump (not included). They
-> are kept for provenance only, are not part of the runnable path, and will not execute
-> under Python 3.
+Used by the **labelled** F1 path only: the Scala `FillQasrlSlots` loads
+`en_verb_inflections.txt` from here at runtime to inflect verbs. These `.txt` files are
+the finished artifact — nothing in the pipeline regenerates them, and a runner needs
+nothing else.

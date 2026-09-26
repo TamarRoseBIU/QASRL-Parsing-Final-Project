@@ -20,7 +20,7 @@ supervised checkpoint, so their gains are directly comparable.
       ┌───────────┴───────────┐
       ▼                       ▼
     GRPO                     DPO            ← two independent improvement tracks,
- (F_β reward)          (on-policy pairs)      each warm-started from the SFT adapter
+ (F_β reward)          (on-policy pairs)      starting from the same SFT weights
       └───────────┬───────────┘
                   ▼
             Evaluation                       ← greedy inference + Unlabelled/Labelled F1
@@ -28,7 +28,8 @@ supervised checkpoint, so their gains are directly comparable.
 
 - **SFT** — LoRA cross-entropy fine-tuning, the base capability the RL stages build on.
 - **GRPO** — group-relative policy optimization against a recall-weighted F_β reward,
-  motivated by the SFT model's tendency to under-generate adjunct roles. The winner.
+  motivated by the SFT model's tendency to miss adjunct arguments — the *why* / *how* /
+  *where* questions. The winner.
 - **DPO** — direct preference optimization on preference pairs sampled from the SFT
   model itself.
 - **Evaluation** — greedy inference, then Unlabelled Argument F1 against a fixed gold
@@ -36,7 +37,8 @@ supervised checkpoint, so their gains are directly comparable.
 
 ## Results
 
-Unlabelled Argument F1 on the held-out test set split:
+Unlabelled Argument F1 on the held-out **`passive_red`** test split: 2,450 predicates in
+999 Wikinews and Wikipedia sentences ([details](data/README.md)):
 
 | Stage                   | F1           | vs SFT   |
 | ----------------------- | ------------ | -------- |
@@ -44,79 +46,19 @@ Unlabelled Argument F1 on the held-out test set split:
 | DPO (on-policy pairs)   | 79.59 ± 0.26 | +0.7     |
 | **GRPO** (F_β=2 reward) | **~80.6**    | **+1.7** |
 
-The 78.90 SFT checkpoint is the baseline used to initialize the reported GRPO/DPO
-experiments. A later SFT run evaluated on a held-out `dev_val` split reached 79.42 F1;
-see the experiment notes.
+Why the two figures are written differently: DPO's is a **mean over 3 seeds**, GRPO's a
+**split-half estimate** — its best checkpoint is mid-run, so the checkpoint is chosen on
+one half of the test split and scored on the other, which avoids crediting GRPO for a
+lucky checkpoint. Both are measured against the same SFT baseline.
+
+That baseline, 78.90, is the checkpoint the reported GRPO and DPO runs started from. A
+later SFT run, selected on a held-out slice of `dev` instead of on `test`, reached 79.42;
+it is a validation check rather than part of the reported chain
+([why](evaluation/results/README.md#3-stage-1--sft-cross-entropy-lora)).
 
 **→ [Detailed experiment documentation](evaluation/results/README.md)** — every
 experiment, its configuration and hyperparameters, the checkpoint it was scored at, and
 the full results table, including the ablations and the two non-winning variants.
-
-## Repository layout
-
-```
-QASRL-Parsing-Final-Project/
-├── LICENSE                    ← MIT
-├── requirements-train.txt    ← the train_qwen3 env (training + GPU inference)
-├── requirements-eval.txt     ← the eval env (CPU scoring)
-│
-├── data/
-│   ├── README.md             ← every dataset: where it comes from, how to rebuild it
-│   └── download_data.py      ← fetch the base train/dev/test splits
-│
-├── training/
-│   ├── run_full_pipeline.py  ← SFT → RL → checkpoint selection → inference → scoring
-│   ├── shared/               ← imported by more than one stage: the F_β reward,
-│   │                           inference helpers, the DPO data builder
-│   ├── sft/                  ← Stage 1: cross-entropy LoRA fine-tuning
-│   │   ├── adapters/         ← the two trained SFT adapters (37 MB each), one of which
-│   │   │                       GRPO and DPO warm-start from
-│   │   └── config.yaml
-│   ├── grpo/                 ← Stage 2a: GRPO on a recall-weighted F_β reward (WINNER)
-│   └── dpo/                  ← Stage 2b: DPO on on-policy preference pairs
-│       ├── build_dataset/    ← rebuild the pairs (mining + pair construction), plus
-│       │                       the superseded synthetic arm, kept for the record
-│       ├── existing_dataset/ ← the pairs as used, ready to train on
-│       └── eval_on_val.py    ← rank DPO checkpoints on the held-out dev slice
-│
-└── evaluation/               ← inference + scoring
-    ├── README.md             ← what slots are, what the three metrics mean, how to score
-    ├── config.yaml           ← the exact commands and paths for each step
-    ├── scripts/              ← inference, slot filling, the scorer, summarization
-    ├── results/              ← one report per evaluation ever run, the summary tables,
-    │                           and README.md: the full experiment record
-    ├── data/
-    │   ├── gold/             ← the scoring reference (and its two derivation stages)
-    │   ├── model_input/      ← the prompts fed to inference
-    │   ├── model_output/     ← (empty) where inference writes raw predictions
-    │   ├── model_output_filled_slots/  ← the 5 prediction CSVs behind the reported
-    │   │                                 numbers, plus your own slot-filled output
-    │   └── sentences/        ← tokenized sentences, needed by the Scala slot-filler
-    │
-    └── the Scala slot-filler, for Labelled F1 only:
-        ├── src/main/scala/qasrl/slots/FillQasrlSlots.scala
-        ├── build.sbt, project/     ← sbt build; the qasrl library comes from Maven
-        └── datasets/wiktionary/    ← verb inflections it loads at runtime
-```
-
-This repository contains **only the final, best-performing implementation of each
-stage**, plus the superseded DPO arm kept for the record. Intermediate ablations and
-diagnostic scripts were left out; the experiments behind them are documented in
-[`evaluation/results/README.md`](evaluation/results/README.md).
-
-## How runs are configured
-
-There are **no shell launchers**. Each stage is a Python entry point plus a
-`config.yaml` capturing everything needed to run it — conda env, entry point,
-`PYTHONPATH`, hyperparameters, and a ready-to-copy `run:` command. Read the
-stage's `config.yaml`, then run the Python entry point directly.
-
-| Stage      | Configuration mechanism                       |
-| ---------- | --------------------------------------------- |
-| SFT        | in-script constants (top of the `.py`)        |
-| GRPO       | environment variables (defaults in the `.py`) |
-| DPO        | environment variables + CLI args              |
-| Evaluation | CLI args, two conda envs                      |
 
 ## Environments
 
@@ -145,45 +87,25 @@ name (override with `--python_train` / `--python_eval`). The pinned versions are
 the reported runs were produced with; if your CUDA version differs, install the matching
 `torch` wheel first and then re-run the `pip install`.
 
-## Trained adapters
-
-**Two SFT LoRA adapters ship with this repo** (37 MB each), so GRPO and DPO are runnable
-without retraining SFT first:
-
-| `training/sft/adapters/` | F1 | What it is |
-| ------------------------ | :--: | ---------- |
-| `sft_dev_selected_on_test` | 78.90 | the reported SFT baseline, and the checkpoint the reported GRPO/DPO runs warm-start from — **used by default** |
-| `sft_dev_val_heldout`      | 79.42 | the later `dev_val` held-out sanity check, kept for reference; not part of the reported RL chain |
-
-The RL stages resolve their warm start in this order: `$QASRL_SFT_ADAPTER` if set, then
-the committed adapter above, then a local SFT run's output. So `training/grpo/` and
-`training/dpo/` run as-is on a fresh clone, and you only need the env var to use an
-adapter of your own:
-
-```bash
-export QASRL_SFT_ADAPTER=/path/to/your/sft-adapter
-```
-
-Everything a training run produces — adapters, checkpoints, logs — goes under one
-storage root instead:
-
-```
-$QASRL_BASE_DIR/
-    ├── models_save_baseline/<STAGE>/<RUN_NAME>/      final LoRA adapter (~40 MB)
-    ├── trainer_runs_baseline/<STAGE>/<RUN_NAME>/     checkpoint-*/ (~700 MB per run)
-    └── logs_baseline/<STAGE>/<RUN_NAME>/
-```
-
-`QASRL_BASE_DIR` defaults to `<repo>/runs`, so a fresh clone runs without editing any
-file. The checkpoints are the bulky part — point it at a filesystem with a few GB free:
-
-```bash
-export QASRL_BASE_DIR=/path/to/your/model-storage
-```
-
 ---
 
 ## Quickstart
+
+**What it takes.** One GPU large enough for a 30B mixture-of-experts model with LoRA (the
+reported runs used a single NVIDIA B200 with 128 GB of system RAM), ~70 GB of disk for the
+base model, which downloads by itself on first use, and a few GB for checkpoints. Rough
+wall-clock on that hardware:
+
+| Step | Time |
+| ---- | ---- |
+| SFT (5 epochs over `dev`) | ~35 min |
+| GRPO (4,812 steps) | ~2h 35m |
+| DPO (2 epochs over 1,232 pairs) | ~20–30 min |
+| Inference over the test split (2,450 prompts) | ~1h 45m |
+| Scoring one prediction CSV | seconds, CPU only |
+
+Re-scoring the prediction CSVs that ship needs none of this — no GPU and no model, just
+the `eval` environment.
 
 Every command below starts by activating a conda environment. If you have not created
 them yet, do that first — see [Environments](#environments) above (`conda create`, then
@@ -247,6 +169,102 @@ python scripts/evaluate_dataset.py \
 Scoring an adapter of your own takes three (inference → slot fill → score). See
 **[`evaluation/README.md`](evaluation/README.md)** for those commands and for what the
 metrics mean.
+
+## Trained adapters
+
+**Two SFT LoRA adapters ship with this repo** (37 MB each), so GRPO and DPO are runnable
+without retraining SFT first:
+
+| `training/sft/adapters/` | F1 | What it is |
+| ------------------------ | :--: | ---------- |
+| `sft_dev_selected_on_test` | 78.90 | the reported SFT baseline, and the checkpoint the reported GRPO/DPO runs warm-start from — **used by default** |
+| `sft_dev_val_heldout`      | 79.42 | the later `dev_val` held-out sanity check, kept for reference; not part of the reported RL chain |
+
+The RL stages resolve their warm start in this order: `$QASRL_SFT_ADAPTER` if set, then
+the committed adapter above, then a local SFT run's output. So `training/grpo/` and
+`training/dpo/` run as-is on a fresh clone, and you only need the env var to use an
+adapter of your own:
+
+```bash
+export QASRL_SFT_ADAPTER=/path/to/your/sft-adapter
+```
+
+Anything *you* train — adapters, checkpoints, logs — is written under a separate storage
+root:
+
+```
+$QASRL_BASE_DIR/
+    ├── models_save_baseline/<STAGE>/<RUN_NAME>/      final LoRA adapter (~40 MB)
+    ├── trainer_runs_baseline/<STAGE>/<RUN_NAME>/     checkpoint-*/ (~700 MB per run)
+    └── logs_baseline/<STAGE>/<RUN_NAME>/
+```
+
+`QASRL_BASE_DIR` defaults to `<repo>/runs`, so a fresh clone runs without editing any
+file. The checkpoints are the bulky part — point it at a filesystem with a few GB free:
+
+```bash
+export QASRL_BASE_DIR=/path/to/your/model-storage
+```
+
+## Repository layout
+
+```
+QASRL-Parsing-Final-Project/
+├── LICENSE                    ← MIT
+├── requirements-train.txt    ← the train_qwen3 env (training + GPU inference)
+├── requirements-eval.txt     ← the eval env (CPU scoring)
+│
+├── data/
+│   ├── README.md             ← every dataset: where it comes from, how to rebuild it
+│   └── download_data.py      ← fetch the base train/dev/test splits
+│
+├── training/
+│   ├── run_full_pipeline.py  ← SFT → RL → checkpoint selection → inference → scoring
+│   ├── shared/               ← imported by more than one stage: the F_β reward,
+│   │                           inference helpers, the DPO data builder
+│   ├── sft/                  ← Stage 1: cross-entropy LoRA fine-tuning
+│   │   ├── adapters/         ← the two trained SFT adapters (37 MB each), one of which
+│   │   │                       GRPO and DPO warm-start from
+│   │   └── config.yaml
+│   ├── grpo/                 ← Stage 2a: GRPO on a recall-weighted F_β reward (WINNER)
+│   └── dpo/                  ← Stage 2b: DPO on on-policy preference pairs
+│       ├── build_dataset/    ← rebuild the pairs (mining + pair construction), plus
+│       │                       the superseded synthetic arm, kept for the record
+│       ├── existing_dataset/ ← the pairs as used, ready to train on
+│       └── eval_on_val.py    ← rank DPO checkpoints on the held-out dev slice
+│
+└── evaluation/               ← inference + scoring
+    ├── README.md             ← what slots are, what the three metrics mean, how to score
+    ├── config.yaml           ← the exact commands and paths for each step
+    ├── scripts/              ← inference, slot filling, the scorer, summarization
+    ├── results/              ← one report per evaluation ever run, the summary tables,
+    │                           and README.md: the full experiment record
+    ├── data/
+    │   ├── gold/             ← the scoring reference (and its two derivation stages)
+    │   ├── model_input/      ← the prompts fed to inference
+    │   ├── model_output/     ← (empty) where inference writes raw predictions
+    │   ├── model_output_filled_slots/  ← the 5 prediction CSVs behind the reported
+    │   │                                 numbers, plus your own slot-filled output
+    │   └── sentences/        ← tokenized sentences, needed by the Scala slot-filler
+    │
+    └── the Scala slot-filler, for Labelled F1 only:
+        ├── src/main/scala/qasrl/slots/FillQasrlSlots.scala
+        ├── build.sbt, project/     ← sbt build; the qasrl library comes from Maven
+        └── datasets/wiktionary/    ← verb inflections it loads at runtime
+```
+
+This repository contains **only the final, best-performing implementation of each
+stage**, plus the superseded DPO arm kept for the record. Intermediate ablations and
+diagnostic scripts were left out; the experiments behind them are documented in
+[`evaluation/results/README.md`](evaluation/results/README.md).
+
+## How runs are configured
+
+Every stage is a Python entry point plus a `config.yaml` next to it, holding the conda
+env, the `PYTHONPATH`, the hyperparameters that reproduce the reported run, and a
+ready-to-copy command. There are no shell launchers to adapt. Hyperparameters live as
+in-script constants for SFT and as environment variables for GRPO and DPO; each
+`config.yaml` lists the values used.
 
 ---
 

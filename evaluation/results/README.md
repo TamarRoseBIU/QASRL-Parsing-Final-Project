@@ -10,21 +10,15 @@ This document is the evidence behind the numbers quoted there.
 
 ## 1. The metric
 
-[`../README.md`](../README.md) explains slots, the three metrics and the scoring commands.
-In short:
+Every number below is **Unlabelled Argument F1** on the held-out `passive_red` **test**
+split, greedy decoding, micro-averaged: a predicted answer span counts as correct when it
+overlaps a gold span with IoU ≥ 0.3 under one-to-one matching. The same statistic is used
+to select checkpoints and to report them.
 
-**Unlabelled Argument F1** on the held-out `passive_red` **test** split, greedy decoding
-(`do_sample=False`). An argument counts as correct when its predicted span overlaps a
-gold span with IoU ≥ 0.3 under one-to-one matching. F1 is **micro**-averaged (global
-tp/fp/fn), so it is the statistic checkpoints are selected on as well as the one
-reported.
-
-Labelled Argument F1 and Unlabelled Role F1 are also emitted by the scorer and appear in
-each report, but the headline comparison throughout the project is Unlabelled Argument
-F1. Labelled F1 additionally depends on the Scala `FillQasrlSlots` slot-filler, so it is
-only meaningful for runs whose predictions went through it (rows 2 and 3). The rest were
-slot-filled with `add_dummy_slots.py`, which writes `_` into every slot, so their
-_labelled_ column is an artifact — read their unlabelled rows only.
+The scorer also prints Labelled Argument and Unlabelled Role F1, which appear in each
+report. Labelled is only meaningful for runs slot-filled by the Scala `FillQasrlSlots`
+(rows 2 and 3); the others used `add_dummy_slots.py`, so read their unlabelled rows only.
+[`../README.md`](../README.md) explains all of this properly.
 
 ### Reproducing a number
 
@@ -269,8 +263,11 @@ comparable to the DPO gain itself.
 | `placeholder_corrected_f1.md`  | A correction analysis — see below.                                                                              |
 
 `summary_data.csv` and `model_comparison.txt` are **regenerated** from the `.txt`
-reports by `scripts/summarize_results.py`. Deleting a report silently shrinks the table
-on the next regeneration.
+reports by `scripts/summarize_results.py`, which rebuilds them from whatever reports it
+finds and overwrites rather than merges — so deleting a report silently shrinks the table,
+and running it against an empty `results/` wipes it. One more caveat: the `Method` column
+in `model_comparison.txt` is hand-edited for the post-hoc runs (the parser prints `N/A`
+for tags it does not recognise, such as `DPO`), and regenerating resets those labels.
 
 **Five of the ten runs also ship their prediction CSV** under
 `evaluation/data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/` (rows 2, 3, 4, 7,
