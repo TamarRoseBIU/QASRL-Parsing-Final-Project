@@ -16,8 +16,11 @@ vs best-vs-median — can be swept without paying for GPU sampling again.
 Scores every sample with qasrl_reward_full at BOTH beta=1.0 and beta=2.0 (plus raw
 P/R/tp/fp/fn), so the recall-weighting decision is made downstream from one sampling run.
 
-Sharding: --shard_idx / --n_shards partitions dev deterministically so the ~2,400 groups
-fit under the 4h SLURM wall across two concurrent jobs.
+Splitting the work (optional): by default this makes one pass over all of dev. To spread
+that pass over several jobs -- one pass over ~2,400 groups does not fit in a 4h GPU slot --
+run it N times with --n_shards N and --shard_idx 0..N-1. Each run takes a fixed slice of
+dev (every Nth group, by position), so the slices are reproducible and do not overlap. The
+pair builder accepts all the output files together.
 
 Reads ONLY the dev split. test.json is never opened.
 """
@@ -52,8 +55,11 @@ def main():
     ap.add_argument("--top_p", type=float, default=0.95)
     ap.add_argument("--max_new_tokens", type=int, default=96)
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--shard_idx", type=int, default=0)
-    ap.add_argument("--n_shards", type=int, default=1)
+    ap.add_argument("--n_shards", type=int, default=1,
+                    help="split the pass over dev into this many slices "
+                         "(default 1 = do it all in one run)")
+    ap.add_argument("--shard_idx", type=int, default=0,
+                    help="which slice to process, 0..n_shards-1")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 

@@ -123,33 +123,42 @@ Two steps. Both run in the `train_qwen3` conda env (see
 rendering is the SFT adapter dir (`DEFAULT_TOKENIZER_DIR`, resolved from
 `$QASRL_SFT_ADAPTER`).
 
-**Step 1 — mine on-policy samples from the SFT checkpoint over `dev`** (GPU; sharded).
-The mined shards are the *input* to the pair builder and already ship in
-`training/dpo/build_dataset/onpolicy_samples/`. Run once per shard (see the
-`build_dataset.mine_samples` block of `training/dpo/config.yaml` for the env
-details):
+**Step 1 — sample from the SFT model over `dev`** (GPU). For each
+`(sentence, predicate)` group it draws k=8 samples and scores each one against gold.
+Its output is the input to step 2, and it already ships in
+`training/dpo/build_dataset/onpolicy_samples/`, so this step is only needed to rebuild
+from scratch. One command:
 
 ```bash
 conda activate train_qwen3
 cd training/dpo/build_dataset
-# The SFT adapter ships with the repo; override with QASRL_SFT_ADAPTER to use your own.
-CE_CKPT=${QASRL_SFT_ADAPTER:-../../sft/adapters/sft_dev_selected_on_test}
-for IDX in 0 1; do
-  PYTHONPATH=../../shared \
-  python mine_onpolicy_samples.py \
-      --ckpt "$CE_CKPT" --split dev --k 8 --temperature 1.0 --top_p 0.95 \
-      --shard_idx $IDX --n_shards 2 \
-      --out onpolicy_samples/dev_k8_shard${IDX}of2.jsonl
-done
-# → onpolicy_samples/dev_k8_shard{0,1}of2.jsonl
+PYTHONPATH=../../shared \
+python mine_onpolicy_samples.py \
+    --ckpt ../../sft/adapters/sft_dev_selected_on_test \
+    --split dev --k 8 --temperature 1.0 --top_p 0.95 \
+    --out onpolicy_samples/dev_k8.jsonl
 ```
+
+Pass a different `--ckpt` to sample from an SFT adapter of your own. See the
+`build_dataset.mine_samples` block of `training/dpo/config.yaml` for the same settings in
+config form.
+
+> **Splitting the work across jobs (optional).** One pass over all ~2,400 `dev` groups
+> takes longer than the 4-hour GPU slot this project ran under, so the shipped samples
+> were produced in **two halves, run as two jobs**: `--n_shards 2 --shard_idx 0` and
+> `--n_shards 2 --shard_idx 1`. Each half is a fixed, reproducible slice of `dev` (every
+> other group, by position), which is why the two files that ship are named
+> `dev_k8_shard0of2.jsonl` and `dev_k8_shard1of2.jsonl`. Step 2's `--samples` takes any
+> number of these files, so one file or two makes no difference to the result. With the
+> defaults (`--n_shards 1`), the single command above does the whole split in one go.
 
 Mined-sample schema (one line per group):
 `{group_id, sentence, predicate, gold_qas, n_gold, samples}`.
 
-**Step 2 — build the preference pairs** (CPU). `build_onpolicy_pairs.py` imports
-helpers from `training/shared/build_dpo_training_data.py`, so put `shared` on
-`PYTHONPATH`:
+**Step 2 — build the preference pairs** (CPU). Takes the samples from step 1 and turns
+each group into one `chosen` / `rejected` pair. List every file step 1 produced after
+`--samples` — one if you ran it once, the two shipped halves as below. It imports helpers
+from `training/shared/build_dpo_training_data.py`, so put `shared` on `PYTHONPATH`:
 
 ```bash
 conda activate train_qwen3

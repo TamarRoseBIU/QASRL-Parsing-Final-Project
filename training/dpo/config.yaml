@@ -23,7 +23,9 @@ build_dataset:
     # pass that path, or set QASRL_SFT_ADAPTER to an adapter of your own.
     ce_checkpoint: ../../sft/adapters/sft_dev_selected_on_test
     args: {split: dev, k: 8, temperature: 1.0, top_p: 0.95}
-    # run per shard (0 and 1 of 2); output -> build_dataset/onpolicy_samples/
+    # One run covers all of dev. The shipped samples were produced as two halves
+    # (--n_shards 2 --shard_idx 0|1) only to fit a 4h GPU slot; the pair builder takes
+    # either shape. Output -> build_dataset/onpolicy_samples/
     run: >
       PYTHONPATH=../../shared
       python build_dataset/mine_onpolicy_samples.py
