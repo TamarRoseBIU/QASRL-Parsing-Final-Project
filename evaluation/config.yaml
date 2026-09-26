@@ -50,10 +50,11 @@ summarize:
 labelled_f1:
   slot_filler: FillQasrlSlots (Scala; build.sbt + cs)
 
-# Adapter locations to evaluate. NOT IN THIS REPO — the LoRA adapters (~40 MB each)
-# are not committed here. Produce them by running the training stages, or supply
-# your own. $QASRL_BASE_DIR defaults to <repo>/runs:
+# Adapter locations to evaluate. The two SFT adapters ARE committed, under
+# training/sft/adapters/; the GRPO and DPO adapters are not — produce them by running
+# those stages, or supply your own. $QASRL_BASE_DIR defaults to <repo>/runs:
 adapters:
-  sft:  $QASRL_SFT_ADAPTER   # or ${QASRL_BASE_DIR}/models_save_baseline/Stage_CE/<CE_RUN_NAME>
+  sft:  ../training/sft/adapters/sft_dev_selected_on_test   # the reported 78.90 baseline
+  sft_dev_val_check: ../training/sft/adapters/sft_dev_val_heldout   # the 79.42 check
   grpo: ${QASRL_BASE_DIR}/models_save_baseline/Stage_GRPO_Instruct_DEV/<run_name>   # eval ~checkpoint-3600
   dpo:  ${QASRL_BASE_DIR}/models_save_baseline/Stage_DPO_Instruct_DEV/<run_name>    # checkpoint-150

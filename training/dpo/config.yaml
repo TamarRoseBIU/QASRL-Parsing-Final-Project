@@ -19,9 +19,9 @@ build_dataset:
   mine_samples:                 # GPU; imports qasrl_reward + qasrl_inference_utils
     entrypoint: build_dataset/mine_onpolicy_samples.py
     pythonpath: ../../shared
-    # NOT IN THIS REPO — the SFT LoRA adapter is not committed here. Produce it by
-    # running training/sft/, or set QASRL_SFT_ADAPTER to your own adapter dir.
-    ce_checkpoint: ${QASRL_SFT_ADAPTER}
+    # The SFT adapter is committed at ../../sft/adapters/sft_dev_selected_on_test;
+    # pass that path, or set QASRL_SFT_ADAPTER to an adapter of your own.
+    ce_checkpoint: ../../sft/adapters/sft_dev_selected_on_test
     args: {split: dev, k: 8, temperature: 1.0, top_p: 0.95}
     # run per shard (0 and 1 of 2); output -> build_dataset/onpolicy_samples/
     run: >

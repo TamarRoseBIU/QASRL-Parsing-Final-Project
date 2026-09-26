@@ -39,6 +39,7 @@ pipelines:
       gradient_accumulation_steps: 4
     run_name: Qwen3-30B-A3B-Instruct-2507_train_dev_val_test
     result: 78.90 Unlabelled Argument F1
+    shipped_adapter: adapters/sft_dev_selected_on_test   # committed; the RL default
     # RUN_NAME encodes the selection split, so it changes with SELECT_ON. GRPO/DPO
     # fall back to exactly this name, so the default chain needs no env var; set
     # QASRL_SFT_ADAPTER to override.
@@ -59,6 +60,7 @@ pipelines:
     selected_checkpoint: checkpoint-600
     run_name: Qwen3-30B-A3B-Instruct-2507_train_dev_val_dev_val
     result: 79.42 Unlabelled Argument F1
+    shipped_adapter: adapters/sft_dev_val_heldout       # committed, for reference
 
   train:                          # the 73.89 full-train-split CE baseline row
     entrypoint: Stage_CE_Instruct_DEV.py     # same script, TRAIN_ON switched

@@ -25,13 +25,14 @@ MODEL       = "Qwen3-30B-A3B-Instruct-2507"
 CE_RUN_NAME = f"{MODEL}_train_dev_val_test"
 PREV_STAGE  = "Stage_CE"
 
-# The SFT (CE) adapter directory, used here only for its tokenizer. It is not
-# committed to this repo -- set QASRL_SFT_ADAPTER to your own SFT adapter dir,
-# or leave it to fall back to the BASE_DIR layout.
-# QASRL_SFT_ADAPTER is the single place every stage resolves the adapter from.
-DEFAULT_TOKENIZER_DIR = os.environ.get(
-    "QASRL_SFT_ADAPTER",
-    f"{BASE_DIR}/models_save_baseline/{PREV_STAGE}/{CE_RUN_NAME}")
+# The SFT (CE) adapter directory, used here only for its tokenizer. Resolved as:
+#   1. $QASRL_SFT_ADAPTER, if set
+#   2. the SFT adapter committed in this repo (training/sft/adapters/...)
+#   3. the BASE_DIR layout, i.e. a local SFT run's output
+_REPO_SFT_ADAPTER = Path(__file__).resolve().parents[1] / "sft" / "adapters" / "sft_dev_selected_on_test"
+DEFAULT_TOKENIZER_DIR = os.environ.get("QASRL_SFT_ADAPTER") or (
+    str(_REPO_SFT_ADAPTER) if (_REPO_SFT_ADAPTER / "adapter_config.json").is_file()
+    else f"{BASE_DIR}/models_save_baseline/{PREV_STAGE}/{CE_RUN_NAME}")
 
 # Where build_dpo_data.py / build_dpo_data_test.py / llm_fix_grammar.py actually
 # write their output (see those scripts' OUTPUT_PATH / --output defaults).

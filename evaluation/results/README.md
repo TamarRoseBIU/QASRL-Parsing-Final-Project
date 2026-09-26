@@ -30,6 +30,7 @@ model, in the `eval` env (`pip install -r ../../requirements-eval.txt` — see
 [Environments](../../README.md#environments)):
 
 ```bash
+conda activate eval
 cd evaluation
 python scripts/evaluate_dataset.py \
     ./data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/<PREDICTIONS>.csv \
@@ -71,6 +72,7 @@ non-winning variants (rows 2, 5, 6) showing which choices mattered.
 ## 3. Stage 1 — SFT (cross-entropy, LoRA)
 
 Entry point: `training/sft/Stage_CE_Instruct_DEV.py` · config: `training/sft/config.yaml`
+· both adapters ship under `training/sft/adapters/` (see its README)
 
 ### Shared hyperparameters
 

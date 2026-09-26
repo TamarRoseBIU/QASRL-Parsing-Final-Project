@@ -78,18 +78,25 @@ CURRENT_STAGE = "Stage_GRPO_Instruct_DEV"
 # Resolve the SFT adapter from QASRL_SFT_ADAPTER when set; otherwise fall back to
 # the BASE_DIR layout. Set the env var to whatever directory training/sft/ wrote --
 # its RUN_NAME depends on the split/validation mode it ran in.
-CE_MODEL_DIR   = pathlib.Path(os.environ.get(
-    "QASRL_SFT_ADAPTER",
-    str(BASE_DIR / "models_save_baseline" / PREV_STAGE / CE_RUN_NAME)))
+# Resolution order for the warm-start adapter:
+#   1. $QASRL_SFT_ADAPTER, if set
+#   2. the SFT adapter committed in this repo (training/sft/adapters/...), so a fresh
+#      clone can run this stage without retraining SFT first
+#   3. the BASE_DIR layout, i.e. a local SFT run's output
+REPO_SFT_ADAPTER = SCRIPT_DIR.parent / "sft" / "adapters" / "sft_dev_selected_on_test"
+CE_MODEL_DIR   = pathlib.Path(os.environ["QASRL_SFT_ADAPTER"]) if os.environ.get("QASRL_SFT_ADAPTER") \
+    else (REPO_SFT_ADAPTER if (REPO_SFT_ADAPTER / "adapter_config.json").is_file()
+          else BASE_DIR / "models_save_baseline" / PREV_STAGE / CE_RUN_NAME)
 
 # Fail early and clearly if the warm-start adapter is missing: without this the
 # failure surfaces much later, inside PEFT, as an opaque path error.
 if not (CE_MODEL_DIR / "adapter_config.json").is_file():
     raise SystemExit(
         f"SFT warm-start adapter not found: {CE_MODEL_DIR}\n"
-        "GRPO warm-starts from the SFT adapter. Either:\n"
-        "  1. run training/sft/ first (its default protocol writes exactly this "
-        "directory name), or\n"
+        "GRPO warm-starts from the SFT adapter. Normally training/sft/adapters/"
+        "sft_dev_selected_on_test (committed in this repo) is used automatically, so "
+        "either:\n"
+        "  1. restore that directory, or run training/sft/ to produce your own, or\n"
         "  2. export QASRL_SFT_ADAPTER=/path/to/your/sft-adapter\n"
         "Note: the reported results warm-start from the SFT run selected on test "
         "(...train_dev_val_test). A run with QASRL_SFT_SELECT_ON=dev_val writes a "

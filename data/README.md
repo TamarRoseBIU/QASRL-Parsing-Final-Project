@@ -28,6 +28,7 @@ To materialize them locally (offline use / explicit provenance), run the downloa
 helper — it fetches the same three splits:
 
 ```bash
+conda activate train_qwen3              # either env works: only requests is needed
 python download_data.py                 # -> ./raw/{train,dev,test}.json
 python download_data.py --splits dev test
 ```
@@ -129,10 +130,10 @@ The mined shards are the *input* to the pair builder and already ship in
 details):
 
 ```bash
+conda activate train_qwen3
 cd training/dpo/build_dataset
-# The SFT adapter is NOT distributable and is not in this repo — run training/sft/ to
-# produce it, or point this at your own:
-CE_CKPT=${QASRL_SFT_ADAPTER:?set QASRL_SFT_ADAPTER to your SFT adapter dir}
+# The SFT adapter ships with the repo; override with QASRL_SFT_ADAPTER to use your own.
+CE_CKPT=${QASRL_SFT_ADAPTER:-../../sft/adapters/sft_dev_selected_on_test}
 for IDX in 0 1; do
   PYTHONPATH=../../shared \
   python mine_onpolicy_samples.py \
@@ -151,6 +152,7 @@ helpers from `training/shared/build_dpo_training_data.py`, so put `shared` on
 `PYTHONPATH`:
 
 ```bash
+conda activate train_qwen3
 cd training/dpo/build_dataset
 PYTHONPATH=../../shared \
 python build_onpolicy_pairs.py \
@@ -217,6 +219,7 @@ checkpoint the GRPO/DPO experiments were initialized from; `..._dev_heldout` is 
 Reproduce any row with:
 
 ```bash
+conda activate eval
 cd evaluation
 python scripts/evaluate_dataset.py \
     data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/<file>.csv \
@@ -263,6 +266,7 @@ are the raw scorer output they are built from, and they ship alongside so the su
 regenerable:
 
 ```bash
+conda activate eval
 cd evaluation
 # score one run: writes results/<model>~<run>.txt, then refreshes both summary files
 python scripts/run_evaluation.py <predictions.csv> <gold.csv>

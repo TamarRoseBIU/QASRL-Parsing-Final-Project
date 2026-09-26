@@ -78,6 +78,10 @@ Thumbs.db
 !/evaluation/datasets/**
 !/training/dpo/existing_dataset/**
 !/training/dpo/build_dataset/onpolicy_samples/**
+# The two SFT LoRA adapters are committed on purpose (~37 MB each): GRPO and DPO
+# warm-start from one of them, so shipping them makes the RL stages runnable without
+# first retraining a 30B model. This overrides the *.safetensors rule above.
+!/training/sft/adapters/**
 !**/.gitkeep
 
 # ---------------------------------------------------------------------------

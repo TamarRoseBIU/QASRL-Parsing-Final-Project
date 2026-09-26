@@ -64,6 +64,7 @@ repo_clean/
 │   ├── run_full_pipeline.py  ← runs SFT → RL → inference → evaluation end to end
 │   ├── shared/               ← modules imported by more than one stage
 │   ├── sft/                  ← Stage 1: supervised fine-tuning (cross-entropy, LoRA)
+│   │   └── adapters/         (the two trained SFT adapters, 37 MB each)
 │   ├── grpo/                 ← Stage 2a: GRPO with recall-weighted F_β reward (WINNER)
 │   └── dpo/                  ← Stage 2b: DPO on on-policy preference pairs
 │       ├── build_dataset/        (reproduce the preference pairs)
@@ -124,7 +125,25 @@ the reported runs were produced with; if your CUDA version differs, install the 
 
 ## Trained adapters
 
-Every stage writes its adapters, checkpoints, and logs under one storage root:
+**Two SFT LoRA adapters ship with this repo** (37 MB each), so GRPO and DPO are runnable
+without retraining SFT first:
+
+| `training/sft/adapters/` | F1 | What it is |
+| ------------------------ | :--: | ---------- |
+| `sft_dev_selected_on_test` | 78.90 | the reported SFT baseline, and the checkpoint the reported GRPO/DPO runs warm-start from — **used by default** |
+| `sft_dev_val_heldout`      | 79.42 | the later `dev_val` held-out sanity check, kept for reference; not part of the reported RL chain |
+
+The RL stages resolve their warm start in this order: `$QASRL_SFT_ADAPTER` if set, then
+the committed adapter above, then a local SFT run's output. So `training/grpo/` and
+`training/dpo/` run as-is on a fresh clone, and you only need the env var to use an
+adapter of your own:
+
+```bash
+export QASRL_SFT_ADAPTER=/path/to/your/sft-adapter
+```
+
+Everything a training run produces — adapters, checkpoints, logs — goes under one
+storage root instead:
 
 ```
 $QASRL_BASE_DIR/
@@ -140,17 +159,6 @@ file. The checkpoints are the bulky part — point it at a filesystem with a few
 export QASRL_BASE_DIR=/path/to/your/model-storage
 ```
 
-GRPO and DPO both warm-start from the SFT adapter, which is not included in this repo.
-Either run the SFT stage first to produce it, or point `QASRL_SFT_ADAPTER` at an
-adapter of your own:
-
-```bash
-export QASRL_SFT_ADAPTER=/path/to/your/sft-adapter
-```
-
-The base model needs no setup: every stage loads `Qwen/Qwen3-30B-A3B-Instruct-2507`
-from HuggingFace on first use.
-
 ---
 
 ## Quickstart
@@ -158,12 +166,14 @@ from HuggingFace on first use.
 Get the base data once (SFT/GRPO also fetch it at runtime; this makes it explicit):
 
 ```bash
+conda activate train_qwen3             # either env works: this script only needs requests
 python data/download_data.py           # -> data/raw/{train,dev,test}.json
 ```
 
 ### Run the whole pipeline
 
 ```bash
+conda activate train_qwen3
 cd training
 python run_full_pipeline.py --sft_data DEV --rl_method GRPO
 ```
@@ -173,18 +183,28 @@ adapter to the next and stopping with a clear message if any stage fails. Use
 `--rl_method DPO` for the DPO track and `--sft_data TRAIN` for the full-`train`-split
 baseline. See `--help` for checkpoint-selection and interpreter options.
 
+It runs in `train_qwen3` because it reads the per-stage `config.yaml` files (PyYAML), but
+it dispatches each step to the right environment itself, looking up
+`<conda base>/envs/<name>/bin/python` by the env names in those configs — so the `eval`
+environment has to exist under that name too. Override either interpreter with
+`--python_train` / `--python_eval`.
+
 ### Or run stages individually
 
-Each stage's exact command, with the hyperparameters that reproduce the reported run,
-is in its `config.yaml`:
+Each stage runs from its own directory, and the two RL stages need `../shared` on
+`PYTHONPATH` (they import the reward function from there). The hyperparameters that
+reproduce the reported run are in each stage's `config.yaml`. From the repo root:
 
 ```bash
-python training/sft/Stage_CE_Instruct_DEV.py         # see training/sft/config.yaml
-python training/grpo/Stage_GRPO_Instruct_DEV.py      # see training/grpo/config.yaml
-python training/dpo/Stage_DPO_Instruct_DEV.py        # see training/dpo/config.yaml
+conda activate train_qwen3
+(cd training/sft  && python Stage_CE_Instruct_DEV.py)
+(cd training/grpo && PYTHONPATH=../shared python Stage_GRPO_Instruct_DEV.py)
+(cd training/dpo  && PYTHONPATH=../shared python Stage_DPO_Instruct_DEV.py)
 ```
 
-The DPO preference dataset already ships ready to train on; rebuilding it is optional.
+GRPO and DPO warm-start from the committed SFT adapter, so the SFT stage is optional —
+run it only to retrain the baseline yourself. The DPO preference dataset also ships ready
+to train on; rebuilding it is optional too.
 
 ### Evaluate an adapter
 
@@ -193,6 +213,7 @@ scoring in `eval`. The exact commands are in `evaluation/config.yaml`; to re-sco
 prediction CSV that already ships, only the last step is needed:
 
 ```bash
+conda activate eval
 cd evaluation
 python scripts/evaluate_dataset.py \
     ./data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/<PREDICTIONS>.csv \

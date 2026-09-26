@@ -39,11 +39,12 @@ run: >
   python Stage_GRPO_Instruct_DEV.py
 
 # Warm-start: the frozen SFT (CE) LoRA adapter acts as both init and KL reference.
-# NOT IN THIS REPO — the SFT LoRA adapter (~40 MB) is not committed here.
-# Produce it by running the SFT stage (training/sft/), or set
-# QASRL_SFT_ADAPTER to your own. Resolved as:
-warm_start_adapter_env: QASRL_SFT_ADAPTER   # set this to the dir training/sft/ wrote
-warm_start_adapter_fallback: ${QASRL_BASE_DIR}/models_save_baseline/Stage_CE/<CE_RUN_NAME>
+# The adapter is COMMITTED in this repo, so this stage runs without training SFT first.
+# Resolution order:
+warm_start_adapter:
+  1_env:     QASRL_SFT_ADAPTER            # wins if set
+  2_in_repo: ../sft/adapters/sft_dev_selected_on_test   # default: the reported 78.90 SFT
+  3_fallback: ${QASRL_BASE_DIR}/models_save_baseline/Stage_CE/<CE_RUN_NAME>  # a local SFT run
 
 # Checkpoint selection: the best checkpoint is MID-RUN (~3600 of 4812), not the final.
 # Evaluate ~ckpt-3600 and report the honest split-half figure (~80.6 F1, +1.7 vs SFT).
