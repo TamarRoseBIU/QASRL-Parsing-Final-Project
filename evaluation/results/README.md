@@ -143,9 +143,13 @@ set to reproduce the winner.
 ### Why the reward is recall-weighted
 
 Error analysis showed the SFT model is **recall-limited** — it systematically
-under-generates adjunct roles. F_β=2 up-weights recall, and the effect is visible in the
-metric split: SFT is 84.84 P / 73.74 R, while GRPO ckpt-3600 is 79.60 P / **82.26 R**.
-GRPO trades precision for a larger recall gain.
+under-generates adjunct arguments. The shipped CSVs show it: against gold, the SFT run
+produces only 59% as many *why* questions and 68% as many *where* questions, while
+matching gold almost exactly on the core *what* (91%) and *who* (94%) roles.
+
+F_β=2 up-weights recall, and the effect is visible in the metric split: SFT is
+84.84 P / 73.74 R, while GRPO ckpt-3600 is 79.60 P / **82.26 R**. GRPO trades precision
+for a larger recall gain.
 
 ### The β plateau
 

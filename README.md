@@ -28,8 +28,8 @@ supervised checkpoint, so their gains are directly comparable.
 
 - **SFT** — LoRA cross-entropy fine-tuning, the base capability the RL stages build on.
 - **GRPO** — group-relative policy optimization against a recall-weighted F_β reward,
-  motivated by the SFT model's tendency to miss adjunct arguments — the *why* / *how* /
-  *where* questions. The winner.
+  motivated by the SFT model's tendency to miss adjunct arguments, above all the *why*
+  and *where* questions. The winner.
 - **DPO** — direct preference optimization on preference pairs sampled from the SFT
   model itself.
 - **Evaluation** — greedy inference, then Unlabelled Argument F1 against a fixed gold
@@ -91,21 +91,8 @@ the reported runs were produced with; if your CUDA version differs, install the 
 
 ## Quickstart
 
-**What it takes.** One GPU large enough for a 30B mixture-of-experts model with LoRA (the
-reported runs used a single NVIDIA B200 with 128 GB of system RAM), ~70 GB of disk for the
-base model, which downloads by itself on first use, and a few GB for checkpoints. Rough
-wall-clock on that hardware:
-
-| Step | Time |
-| ---- | ---- |
-| SFT (5 epochs over `dev`) | ~35 min |
-| GRPO (4,812 steps) | ~2h 35m |
-| DPO (2 epochs over 1,232 pairs) | ~20–30 min |
-| Inference over the test split (2,450 prompts) | ~1h 45m |
-| Scoring one prediction CSV | seconds, CPU only |
-
-Re-scoring the prediction CSVs that ship needs none of this — no GPU and no model, just
-the `eval` environment.
+Re-scoring the prediction CSVs that ship needs no GPU — just the `eval` environment. The
+training stages need one.
 
 Every command below starts by activating a conda environment. If you have not created
 them yet, do that first — see [Environments](#environments) above (`conda create`, then
