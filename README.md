@@ -98,6 +98,9 @@ Every command below starts by activating a conda environment. If you have not cr
 them yet, do that first — see [Environments](#environments) above (`conda create`, then
 `pip install -r requirements-train.txt` / `requirements-eval.txt`).
 
+The base model needs no setup: every stage loads `Qwen/Qwen3-30B-A3B-Instruct-2507` from
+Hugging Face on first use (~69 GB, cached under `HF_HOME`).
+
 Get the base data once (SFT/GRPO also fetch it at runtime; this makes it explicit):
 
 ```bash
@@ -107,16 +110,33 @@ python data/download_data.py           # -> data/raw/{train,dev,test}.json
 
 ### Run the whole pipeline
 
+Start from the SFT checkpoint the reported experiments used — the adapter that ships in
+this repo — rather than training a new one:
+
 ```bash
 conda activate train_qwen3
 cd training
-python run_full_pipeline.py --sft_data DEV --rl_method GRPO
+python run_full_pipeline.py --sft_data DEV --rl_method GRPO \
+    --sft_adapter sft/adapters/sft_dev_selected_on_test
 ```
 
-This chains SFT → RL → checkpoint selection → inference → scoring, passing each stage's
-adapter to the next and stopping with a clear message if any stage fails. Use
-`--rl_method DPO` for the DPO track and `--sft_data TRAIN` for the full-`train`-split
-baseline.
+That runs RL → checkpoint selection → inference → scoring, passing each stage's adapter to
+the next and stopping with a clear message if any stage fails. Use `--rl_method DPO` for
+the DPO track.
+
+`sft/adapters/sft_dev_selected_on_test` is the exact SFT checkpoint (78.90 F1) that the
+reported GRPO and DPO runs were initialized from, so `--sft_adapter` is how you start from
+the same place they did. **It does not guarantee the same final number:** RL training is
+stochastic — sampling, rollout order and seed all move the result — and the best
+checkpoint sits mid-run, so a rerun lands near the reported figure rather than on it.
+
+To verify the reported numbers exactly, score the prediction CSVs that ship
+([Evaluate an adapter](#evaluate-an-adapter) below); those re-derive to the published F1
+down to the TP/FP/FN counts.
+
+Omit `--sft_adapter` to train SFT from scratch first (~2,400 examples, 5 epochs). That
+follows the same protocol, but produces its own checkpoint rather than the one behind the
+reported results. `--sft_data TRAIN` swaps in the full-`train`-split baseline.
 
 **Check your setup first:** add `--dry_run` and it prints every command it would run,
 including which interpreter each step gets, without executing anything. Worth doing before

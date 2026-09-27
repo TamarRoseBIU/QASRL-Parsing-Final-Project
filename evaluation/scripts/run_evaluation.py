@@ -37,11 +37,11 @@ def build_output_filename(system_path: str) -> str:
 
 def get_results_dir() -> Path:
     """
-    Always save results to QSRL_evaluate/results/,
+    Always save results to evaluation/results/,
     regardless of where the script is called from.
     """
-    script_dir  = Path(__file__).resolve().parent   # .../QSRL_evaluate/scripts
-    project_dir = script_dir.parent                 # .../QSRL_evaluate
+    script_dir  = Path(__file__).resolve().parent   # .../evaluation/scripts
+    project_dir = script_dir.parent                 # .../evaluation
     results_dir = project_dir / "results"
     results_dir.mkdir(exist_ok=True)
     return results_dir

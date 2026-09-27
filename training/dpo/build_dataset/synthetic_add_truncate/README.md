@@ -42,10 +42,16 @@ move in — which is what motivated the recall-targeted on-policy pairs that rep
 ## Pipeline
 
 ```bash
-python build_dpo_data.py                  # -> dpo_pairs.json
-python llm_fix_grammar.py --input dpo_pairs.json --output dpo_pairs.grammar_fixed.json   # local vLLM on GPU
-python manual_fix_grammar.py              # -> dpo_pairs.grammar_fixed.manual_fixed.json
+python build_dpo_data.py                  # -> dpo_pairs.json            (CPU)
+python llm_fix_grammar.py --input dpo_pairs.json --output dpo_pairs.grammar_fixed.json
+python manual_fix_grammar.py              # -> dpo_pairs.grammar_fixed.manual_fixed.json  (CPU)
 ```
+
+> **The middle step needs vLLM and a GPU.** `llm_fix_grammar.py` serves the repair model
+> locally through vLLM, which is **not** installed by `requirements-train.txt` — install it
+> separately (`pip install vllm`) if you want to rerun this step. Nothing else in the repo
+> needs it, and the finished dataset ships, so this step is only for rebuilding from
+> scratch.
 
 Then render to the trainer's schema with `../../../shared/build_dpo_training_data.py`.
 Its `--eval-input` default points at `dpo_pairs_test.grammar_fixed.json`, the test-split

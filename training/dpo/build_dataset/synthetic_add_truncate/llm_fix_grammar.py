@@ -691,10 +691,10 @@ def check_gpu_available() -> None:
         log.error(
             "No CUDA device is visible to this process (torch.cuda.is_available() "
             "is False). This script requires a GPU and will not run on CPU.\n\n"
-            "You likely ran this .py file directly on a login node instead of "
-            "through a GPU job. Submit it via:\n\n"
-            "    sbatch run_grammar_fix.sbatch\n\n"
-            "(this cluster only allocates GPUs through sbatch, not srun)."
+            "Run it on a machine or job allocation with a visible GPU. On a scheduled "
+            "cluster that means submitting it as a GPU job rather than running it on a "
+            "login node.\n\n"
+            "It also needs vLLM, which requirements-train.txt does not install."
         )
         sys.exit(1)
 
