@@ -6,8 +6,8 @@ Usage:
 
 Example:
     python scripts/run_evaluation.py \\
-        data/model_output_filled_slots/t5_small_qaset_loss/passive_red_output_QASetLoss_filled_slots.csv \\
-        data/gold/passive_red_test_gold_detokenized_normalized.csv
+        data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/passive_red_output_GRPO_beta2_ckpt3600_filled_slots.csv \\
+        data/gold/gold_updated_passive_filled_slots.csv
 """
 
 import io
@@ -26,12 +26,12 @@ from evaluate_dataset import main as evaluate_main
 def build_output_filename(system_path: str) -> str:
     """
     Build output filename from the system path.
-    e.g. data/model_output_filled_slots/t5_small_qaset_loss/passive_red_output_QASetLoss_filled_slots.csv
-      -> t5_small_qaset_loss~passive_red_output_QASetLoss_filled_slots
+    e.g. data/model_output_filled_slots/Qwen3-30B-A3B-Instruct-2507/passive_red_output_GRPO_beta2_ckpt3600_filled_slots.csv
+      -> Qwen3-30B-A3B-Instruct-2507~passive_red_output_GRPO_beta2_ckpt3600_filled_slots
     """
     p = Path(system_path)
-    model_name = p.parent.name          # t5_small_qaset_loss
-    file_stem  = p.stem                 # passive_red_output_QASetLoss_filled_slots
+    model_name = p.parent.name          # Qwen3-30B-A3B-Instruct-2507
+    file_stem  = p.stem                 # passive_red_output_GRPO_beta2_ckpt3600_filled_slots
     return f"{model_name}~{file_stem}"
 
 

@@ -20,6 +20,7 @@ pandas==3.0.1
 scipy==1.17.1
 requests==2.32.5          # downloads the train/dev/test splits at runtime
 tqdm==4.67.3
+networkx==3.6.1           # only the scorer needs it; included so one env can run everything
 PyYAML==6.0.3             # run_full_pipeline.py reads the per-stage config.yaml
 
 # Deliberately not required:

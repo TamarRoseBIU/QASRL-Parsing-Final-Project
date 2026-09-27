@@ -129,13 +129,17 @@ python run_full_pipeline.py --sft_data DEV --rl_method GRPO
 This chains SFT → RL → checkpoint selection → inference → scoring, passing each stage's
 adapter to the next and stopping with a clear message if any stage fails. Use
 `--rl_method DPO` for the DPO track and `--sft_data TRAIN` for the full-`train`-split
-baseline. See `--help` for checkpoint-selection and interpreter options.
+baseline.
+
+**Check your setup first:** add `--dry_run` and it prints every command it would run,
+including which interpreter each step gets, without executing anything. Worth doing before
+spending GPU hours.
 
 It runs in `train_qwen3` because it reads the per-stage `config.yaml` files (PyYAML), but
-it dispatches each step to the right environment itself, looking up
-`<conda base>/envs/<name>/bin/python` by the env names in those configs — so the `eval`
-environment has to exist under that name too. Override either interpreter with
-`--python_train` / `--python_eval`.
+it dispatches each step to the right environment itself, finding each interpreter by env
+name in the usual conda locations — so the `eval` environment has to exist under that name
+too. If it cannot find one it says so and falls back to the current interpreter; point it
+at the right one with `--python_train` / `--python_eval` (or `QASRL_PYTHON_EVAL`).
 
 ### Or run stages individually
 

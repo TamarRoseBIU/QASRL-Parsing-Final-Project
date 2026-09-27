@@ -80,11 +80,6 @@ pipelines:
     # feeds GRPO/DPO, via QASRL_SFT_ADAPTER.
     result: 73.89 Unlabelled Argument F1
 
-# A separate full-train-split pipeline (train_qwen3_instruct_cross_entropy.py) using the
-# QASetLoss trainer produced no reported number and was removed. The QASetLoss objective
-# is still exercised -- and is still a reported result -- by the T5 baseline in ../t5/,
-# which is why training/shared/Utils/ remains.
-
 # Model storage (read/written by the scripts; NOT part of this repo).
 # $QASRL_BASE_DIR defaults to <repo>/runs:
 #   adapters:    $QASRL_BASE_DIR/models_save_baseline/Stage_CE/<run_name>

@@ -95,9 +95,9 @@ def resolve_python(env_name: str, override: str | None) -> str:
     """
     Find the interpreter for a named conda env.
 
-    Order: explicit --python_* override, then QASRL_PYTHON_<ENV>, then the
-    conda base reported by `conda info --base`, then the current interpreter
-    (with a warning -- correct only if it already has the right packages).
+    Order: explicit --python_* override, then QASRL_PYTHON_<ENV>, then the usual
+    places conda keeps its envs, then the current interpreter (with a warning --
+    correct only if it already has the right packages).
     """
     if override:
         return override
@@ -106,19 +106,36 @@ def resolve_python(env_name: str, override: str | None) -> str:
     if os.environ.get(env_var):
         return os.environ[env_var]
 
+    # Candidate env roots. `conda info --base` is not enough: on many cluster
+    # installs the base lives in /usr while user envs live in ~/.conda/envs.
+    roots: list[Path] = []
+    for var in ("CONDA_ENVS_PATH", "CONDA_ENVS_DIRS"):          # explicit config wins
+        roots += [Path(p) for p in os.environ.get(var, "").split(os.pathsep) if p]
+    if os.environ.get("CONDA_PREFIX"):                           # sibling of the active env
+        roots.append(Path(os.environ["CONDA_PREFIX"]).parent)
     conda = shutil.which("conda")
     if conda:
         try:
             base = subprocess.run([conda, "info", "--base"], capture_output=True,
                                   text=True, timeout=60).stdout.strip()
-            candidate = Path(base) / "envs" / env_name / "bin" / "python"
-            if candidate.is_file():
-                return str(candidate)
+            if base:
+                roots.append(Path(base) / "envs")
         except (subprocess.SubprocessError, OSError):
             pass
+    roots.append(Path.home() / ".conda" / "envs")                # the common user default
+    roots.append(Path.home() / "miniconda3" / "envs")
+    roots.append(Path.home() / "anaconda3" / "envs")
+
+    for root in roots:
+        candidate = root / env_name / "bin" / "python"
+        if candidate.is_file():
+            log.info("resolved conda env %r -> %s", env_name, candidate)
+            return str(candidate)
 
     log.warning("could not locate conda env %r; falling back to %s. "
-                "Set %s to point at the right interpreter.",
+                "Set %s (or pass --python_train / --python_eval) to point at the "
+                "right interpreter -- the fallback only works if it happens to have "
+                "that stage's packages installed.",
                 env_name, sys.executable, env_var)
     return sys.executable
 
