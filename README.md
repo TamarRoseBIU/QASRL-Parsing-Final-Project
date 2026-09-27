@@ -139,8 +139,7 @@ follows the same protocol, but produces its own checkpoint rather than the one b
 reported results. `--sft_data TRAIN` swaps in the full-`train`-split baseline.
 
 **Check your setup first:** add `--dry_run` and it prints every command it would run,
-including which interpreter each step gets, without executing anything. Worth doing before
-spending GPU hours.
+including which interpreter each step gets, without executing anything.
 
 It runs in `train_qwen3` because it reads the per-stage `config.yaml` files (PyYAML), but
 it dispatches each step to the right environment itself, finding each interpreter by env
