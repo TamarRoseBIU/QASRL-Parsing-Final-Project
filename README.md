@@ -286,6 +286,7 @@ record.
 ## Acknowledgments
 
 This work was conducted at the Bar-Ilan University NLP Lab under the supervision of
-Prof. Ido Dagan. I am deeply grateful to Ron Eliav, who served as my day-to-day guide
-throughout the project, for his close mentorship, insight and continuous support. I also
-thank the lab for the computational resources that made this work possible.
+Prof. Ido Dagan. I am deeply grateful to Ron Eliav, a PhD student in the lab, who served
+as my day-to-day guide throughout the project, for his close mentorship, insight and
+continuous support. I also thank the lab for the computational resources that made this
+work possible.
