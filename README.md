@@ -282,3 +282,10 @@ See [`data/README.md`](data/README.md) for dataset details,
 [`evaluation/README.md`](evaluation/README.md) for the metrics and scoring pipeline, and
 [`evaluation/results/README.md`](evaluation/results/README.md) for the full experiment
 record.
+
+## Acknowledgments
+
+This work was conducted at the Bar-Ilan University NLP Lab under the supervision of
+Prof. Ido Dagan. I am deeply grateful to Ron Eliav, who served as my day-to-day guide
+throughout the project, for his close mentorship, insight and continuous support. I also
+thank the lab for the computational resources that made this work possible.
